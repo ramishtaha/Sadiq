@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Ramadan home card, priority 60, offered on 29 Sha'ban (WP-27). -->
+    <string name="ramadan_card_title">Ramadan starts soon</string>
+    <string name="ramadan_card_body">Turn on Ramadan mode? Sadiq will switch to Firm.</string>
+    <string name="ramadan_card_action">Turn on</string>
+
+    <!-- The Ramadan screen -->
+    <string name="ramadan_screen_title">Ramadan mode</string>
+    <string name="ramadan_section_header">RAMADAN</string>
+    <string name="ramadan_mode_off_title">Off</string>
+    <string name="ramadan_mode_off_body">The ordinary schedule. Ramadan changes nothing.</string>
+    <string name="ramadan_mode_ask_title">Ask me on 29 Sha\'ban</string>
+    <string name="ramadan_mode_ask_body">Sadiq offers Ramadan mode and never switches it on by itself.</string>
+    <string name="ramadan_mode_on_title">On</string>
+    <string name="ramadan_mode_on_body">Bedtime starts 90 minutes after Isha and ends 40 minutes before Fajr, leaving Suhoor open.</string>
+    <string name="ramadan_hijri_section_header">HIJRI DATE</string>
+    <string name="ramadan_hijri_note">The date is worked out on the phone from the Umm al-Qura calendar. Nothing is downloaded.</string>
+    <string name="ramadan_offset_label">Correction</string>
+    <string name="ramadan_delay_note">Think it over is on: this month a loosening change waits %1$d minutes.</string>
+    <string name="ramadan_strict_row_title">Think it over</string>
+    <string name="ramadan_strict_row_subtitle_on">On · loosening waits %1$d minutes this month</string>
+    <string name="ramadan_strict_row_subtitle_off">Off · a loosening change takes effect at once</string>
+</resources>

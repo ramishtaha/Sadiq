@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      WP-25 · §4.3 S4 Week. Voice: Name addendum §3 — facts, no praise, no shame, "Bedtime" for
+      the sleep gate, Steady / Firm for BALANCED / HARDCORE. Durations and clock hours are formatted
+      by review/WeekFormat; every sentence around them lives here.
+    -->
+
+    <string name="week_title">Week</string>
+
+    <!-- Card 1: the week in one line. -->
+    <string name="week_headline">%1$s in guarded apps</string>
+    <string name="week_no_comparison">No week to compare with yet.</string>
+    <string name="week_delta_same">Same as last week.</string>
+    <string name="week_delta_less">%1$s less than last week</string>
+    <string name="week_delta_more">%1$s more than last week</string>
+
+    <!-- Card 2: where it went. -->
+    <string name="week_section_where">Where it went</string>
+    <string name="week_no_apps">No guarded app time was recorded this week.</string>
+    <string name="week_peak_band">Most of it between %1$s and %2$s.</string>
+
+    <!-- Card 3: your choices. -->
+    <string name="week_section_choices">Your choices</string>
+    <string name="week_choice_stars">Stars this week</string>
+    <string name="week_choice_leaves">Times you left</string>
+    <string name="week_choice_quiet_nights">Quiet nights</string>
+    <string name="week_quiet_nights_value">%1$d of %2$d</string>
+    <string name="week_choice_focus">Focus minutes</string>
+    <string name="week_value_minutes">%1$d min</string>
+
+    <!-- Card 4: what you said, plus the one suggestion. -->
+    <string name="week_section_said">What you said</string>
+    <string name="week_top_reason">Most often: %1$s.</string>
+    <string name="week_no_reason">No check-ins answered this week.</string>
+    <string name="week_no_suggestion">No change suggested this week.</string>
+
+    <string name="week_suggestion_bedtime_title">Move Bedtime to %1$s?</string>
+    <string name="week_suggestion_bedtime_body">Your busiest hours sit right before Bedtime.</string>
+    <string name="week_suggestion_bedtime_action">Move it</string>
+
+    <string name="week_suggestion_mode_title">Try %1$s?</string>
+    <string name="week_suggestion_mode_body">This week used more than last week.</string>
+    <string name="week_suggestion_mode_action">Use %1$s</string>
+
+    <string name="week_suggestion_guard_title">Guard %1$s?</string>
+    <string name="week_suggestion_guard_body">%1$s isn\'t guarded yet. Guarding it means Sadiq asks one question before it opens.</string>
+    <string name="week_suggestion_guard_action">Guard it</string>
+
+    <!-- What replaces the suggestion once it is applied: the fact, and when it takes effect. -->
+    <string name="week_suggestion_applied">Done.</string>
+    <string name="week_suggestion_scheduled">Takes effect at %1$s.</string>
+
+    <!-- The honest label for numbers built from Sadiq's own records, and the one fix. -->
+    <string name="week_approximate">Approximate</string>
+    <string name="week_turn_on_usage_access">Turn on usage access</string>
+
+    <!-- Before the records span a week. -->
+    <string name="week_empty_headline">Your first week is still being written</string>
+    <string name="week_empty_body">Come back Sunday.</string>
+
+    <!-- Mode names, as the name addendum renames them. -->
+    <string name="week_mode_gentle">Gentle</string>
+    <string name="week_mode_steady">Steady</string>
+    <string name="week_mode_firm">Firm</string>
+
+    <!-- The Sunday attention notification (§4.6). -->
+    <string name="week_notify_title">Your week</string>
+    <string name="week_notify_text">%1$s in guarded apps. Tap to see your week.</string>
+</resources>

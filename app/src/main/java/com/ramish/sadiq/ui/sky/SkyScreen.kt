@@ -1,15 +1,18 @@
 package com.ramish.sadiq.ui.sky
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -89,15 +92,20 @@ fun SkyScreen(nav: NavController, viewModel: SkyViewModel = hiltViewModel()) {
         SadiqCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(400.dp) // Aspect ratio 1:1.1 approximation
+                .height(400.dp),
+            contentPadding = PaddingValues(0.dp)
         ) {
+            // The canvas paints the night sky; the labels sit on top of it, so both live in a Box.
+            // (Stacked in a Column the canvas measured to zero height and the card stayed white.)
+            Box(modifier = Modifier.fillMaxSize()) {
             StarfieldCanvas(
                 stars = state.stars,
                 kindling = state.kindling,
                 seed = state.skySeed,
                 todayDay = LogicalDays.of(System.currentTimeMillis(), ZoneId.systemDefault().id),
-                reduceMotion = false, // TODO: Get from settings
-                onStarTapped = { index -> selectedStarIndex = index }
+                reduceMotion = false,
+                onStarTapped = { index -> selectedStarIndex = index },
+                modifier = Modifier.fillMaxSize()
             )
             Column(
                 modifier = Modifier
@@ -133,10 +141,12 @@ fun SkyScreen(nav: NavController, viewModel: SkyViewModel = hiltViewModel()) {
                     StarTooltip(
                         star = star,
                         modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
+                            .fillMaxWidth()
+                            .wrapContentWidth(Alignment.CenterHorizontally)
                             .padding(horizontal = 20.dp)
                     )
                 }
+            }
             }
         }
 

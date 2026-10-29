@@ -30,6 +30,8 @@ class GuardAccessibilityService : AccessibilityService() {
     @Inject lateinit var guardController: GuardController
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var installedAppsSource: InstalledAppsSource
+
+    @Inject lateinit var accessibilityBinding: com.ramish.sadiq.system.AccessibilityBinding
     @Inject lateinit var permissionStatusProvider: PermissionStatusProvider
     @Inject lateinit var appCatalog: AppCatalog
 
@@ -77,6 +79,7 @@ class GuardAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         Log.i(TAG, "GuardAccessibilityService connected")
         guardServiceHandle.attach(this)
+        accessibilityBinding.setConnected(true)
 
         // A fresh connection has no memory of what was in front (G-01), so the first window event
         // always reaches the engine.
@@ -164,6 +167,7 @@ class GuardAccessibilityService : AccessibilityService() {
 
     override fun onUnbind(intent: Intent?): Boolean {
         Log.i(TAG, "GuardAccessibilityService unbound")
+        accessibilityBinding.setConnected(false)
         guardServiceHandle.detach()
         unregisterScreenStateReceiver()
         foregroundGate.reset()

@@ -81,6 +81,7 @@ class DebugCommandsReceiver : BroadcastReceiver() {
             COMMAND_OFFSET -> setOffset(entry, intent)
             COMMAND_RESET -> reset(entry)
             COMMAND_SELFTEST -> selfTest(context, entry, intent)
+            COMMAND_ONBOARDED -> markOnboarded(entry)
             else -> Log.w(TAG, "unknown cmd '$command'; use dump|guard|mode|offset|reset|selftest")
         }
     }
@@ -179,6 +180,12 @@ class DebugCommandsReceiver : BroadcastReceiver() {
     }
 
     /** Open a package's launcher activity, or say why it cannot be opened. */
+    /** Marks onboarding done, for UI inspection on a test device only. */
+    private suspend fun markOnboarded(entry: DebugCommandsEntryPoint) {
+        entry.settings().updatePrefs { it.copy(onboardingDone = true, onboardingStep = 0) }
+        Log.i(TAG, "onboarding marked done")
+    }
+
     private fun launchPackage(context: Context, packageName: String) {
         val launch = context.packageManager.getLaunchIntentForPackage(packageName)
         if (launch == null) {
@@ -242,6 +249,9 @@ class DebugCommandsReceiver : BroadcastReceiver() {
 
         private const val TAG = "SP/Dump"
         private const val COMMAND_DUMP = "dump"
+
+        /** Debug-only: mark onboarding complete so the Sky can be inspected without a full walkthrough. */
+        private const val COMMAND_ONBOARDED = "onboarded"
         private const val COMMAND_GUARD = "guard"
         private const val COMMAND_MODE = "mode"
         private const val COMMAND_OFFSET = "offset"

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Think it over (WP-27). The Guard tab's rules section and the full screen share this copy. -->
+    <string name="strict_section_header">THINK IT OVER</string>
+    <string name="strict_title">Think it over</string>
+    <string name="strict_subtitle_off">Nothing waits. A loosening change takes effect at once.</string>
+    <plurals name="strict_wait_sentence">
+        <item quantity="one">Loosening a rule waits %1$d minute.</item>
+        <item quantity="other">Loosening a rule waits %1$d minutes.</item>
+    </plurals>
+    <string name="strict_delay_label">LOOSENING WAITS</string>
+    <string name="strict_delay_value">%1$d min</string>
+    <string name="strict_ramadan_note">Ramadan mode is on. This month the wait is %1$d minutes.</string>
+    <string name="strict_outside_reach_note">Android\'s own settings are outside this. Turning off Sadiq\'s accessibility service is not delayed.</string>
+    <string name="strict_screen_title">Think it over</string>
+
+    <!-- The queue: "Takes effect at 23:52 · Cancel" -->
+    <string name="strict_pending_header">TAKES EFFECT SOON</string>
+    <string name="strict_pending_takes_effect">Takes effect at %1$s</string>
+    <string name="strict_pending_cancel">Cancel</string>
+    <string name="strict_pending_mode">Mode · %1$s</string>
+    <string name="strict_pending_apps">Guarded apps · %1$d</string>
+    <string name="strict_pending_surface">One app\'s guard</string>
+    <string name="strict_pending_domains">Guarded websites · %1$d</string>
+    <string name="strict_pending_bedtime">Bedtime</string>
+    <string name="strict_pending_morning">Morning window</string>
+    <string name="strict_pending_prayer">Prayer times</string>
+    <string name="strict_pending_ramadan">Ramadan mode</string>
+    <string name="strict_pending_strict">Think it over</string>
+    <string name="strict_pending_flags">Check-ins and web guard</string>
+
+    <!-- Mode names as the name addendum fixes them: Gentle, Steady, Firm. -->
+    <string name="strict_mode_gentle">Gentle</string>
+    <string name="strict_mode_steady">Steady</string>
+    <string name="strict_mode_firm">Firm</string>
+</resources>
