@@ -5,13 +5,13 @@
     <!-- Guard Screen (S3 Guard) -->
     <string name="guard_mode_section_header">MODE</string>
     <string name="guard_mode_gentle">Gentle · 15 min, then 15 min rest</string>
-    <string name="guard_mode_balanced">Balanced · 10 min, then 30 min rest</string>
-    <string name="guard_mode_hardcore">Hardcore · 5 min, then 60 min rest</string>
+    <string name="guard_mode_balanced">Steady · 10 min, then 30 min rest</string>
+    <string name="guard_mode_hardcore">Firm · 5 min, then 60 min rest</string>
     <string name="guard_mode_subtitle">Shared across all your guarded apps</string>
     <string name="guard_apps_section_header">GUARDED APPS</string>
     <string name="guard_apps_summary">%d apps</string>
     <string name="guard_protected_times_section_header">PROTECTED TIMES</string>
-    <string name="guard_sleep_gate_summary">Sleep gate · %1$s → Fajr</string>
+    <string name="guard_sleep_gate_summary">Bedtime · %1$s → Fajr</string>
     <string name="guard_morning_window_summary">Your morning · Fajr → %1$s</string>
     <string name="guard_prayer_times_summary">Prayer times · %1$s</string>
     <string name="guard_empty_headline">Nothing guarded yet</string>

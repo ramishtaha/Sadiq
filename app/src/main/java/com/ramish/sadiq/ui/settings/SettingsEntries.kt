@@ -36,13 +36,18 @@ abstract class SettingsFeatureEntryModule {
 }
 
 /** S5: the Settings screen, behind the Sky gear. */
-class SettingsEntry @Inject constructor() : FeatureEntry {
+class SettingsEntry @Inject constructor(
+    private val slots: Set<@JvmSuppressWildcards com.ramish.sadiq.contract.UiSlot>,
+) : FeatureEntry {
     override val route = Routes.SETTINGS
     override val tab = null
 
     @Composable
     override fun Content(nav: NavHostController, args: Bundle?) {
-        SettingsScreen(nav)
+        SettingsScreen(
+            nav = nav,
+            slots = slots.filter { it.slot == com.ramish.sadiq.contract.SlotId.SETTINGS_SECTION }.sortedBy { it.order },
+        )
     }
 }
 

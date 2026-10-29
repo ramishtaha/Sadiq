@@ -43,7 +43,11 @@ import com.ramish.sadiq.ui.theme.Spacing
  * @param viewModel the screen's state and intents.
  */
 @Composable
-fun SettingsScreen(nav: NavController, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    nav: NavController,
+    viewModel: SettingsViewModel = hiltViewModel(),
+    slots: List<com.ramish.sadiq.contract.UiSlot> = emptyList(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -220,4 +224,7 @@ fun SettingsScreen(nav: NavController, viewModel: SettingsViewModel = hiltViewMo
             destructive = true
         )
     }
+
+        // Sections contributed by other features (strict mode, Ramadan).
+        slots.forEach { slot -> (nav as? androidx.navigation.NavHostController)?.let { host -> slot.Content(host) } }
 }

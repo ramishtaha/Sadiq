@@ -21,12 +21,17 @@ abstract class GuardEntryModule {
     abstract fun provideGuardFeatureEntry(entry: GuardEntry): FeatureEntry
 }
 
-class GuardEntry @Inject constructor() : FeatureEntry {
+class GuardEntry @Inject constructor(
+    private val slots: Set<@JvmSuppressWildcards com.ramish.sadiq.contract.UiSlot>,
+) : FeatureEntry {
     override val route = Routes.GUARD
     override val tab = Tab.GUARD
 
     @Composable
     override fun Content(nav: NavHostController, args: Bundle?) {
-        GuardScreen(nav)
+        GuardScreen(
+            navController = nav,
+            slots = slots.filter { it.slot == com.ramish.sadiq.contract.SlotId.RULES_SECTION }.sortedBy { it.order },
+        )
     }
 }

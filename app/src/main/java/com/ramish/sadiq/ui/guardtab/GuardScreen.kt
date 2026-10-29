@@ -37,7 +37,11 @@ import com.ramish.sadiq.ui.theme.Spacing
 import com.ramish.sadiq.ui.theme.ThemeFlavor
 
 @Composable
-fun GuardScreen(navController: NavController, viewModel: GuardViewModel = hiltViewModel()) {
+fun GuardScreen(
+    navController: NavController,
+    viewModel: GuardViewModel = hiltViewModel(),
+    slots: List<com.ramish.sadiq.contract.UiSlot> = emptyList(),
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(
@@ -91,6 +95,9 @@ fun GuardScreen(navController: NavController, viewModel: GuardViewModel = hiltVi
             )
         }
     }
+
+        // Sections contributed by other features (strict mode, pending changes) render here.
+        slots.forEach { slot -> (navController as? androidx.navigation.NavHostController)?.let { host -> slot.Content(host) } }
 }
 
 private fun formatMinuteOfDay(minuteOfDay: Int): String {
