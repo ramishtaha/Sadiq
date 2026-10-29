@@ -92,6 +92,11 @@ class InterceptStateHolder @Inject constructor(
      *   be up for the same question.
      */
     fun reportVisible(viaOverlay: Boolean) {
+        // Which host owns the surface is decided by whoever reports, even when a host is already
+        // up: the activity is the primary host (§3.6), so if it turns up after the fallback drew,
+        // it takes the question back and the overlay is told to go. The old early return left both
+        // hosts drawing the same question.
+        mutableOverlayRequested.value = viaOverlay
         val shownAt = shownAtElapsedMs ?: return
         if (visible) return
         visible = true

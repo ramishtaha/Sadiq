@@ -141,6 +141,13 @@ class OverlayHost @Inject constructor(
      * honest thing left when the fallback itself cannot draw.
      */
     private fun apply() {
+        // OFF until it survives a device (2026-10-30, 04:45): on the emulator the first real
+        // question drew this window and the process then ANR'd in SessionService ("waited 20089ms")
+        // with a 109 s eventToVisible — the service window's first composition blocks the same main
+        // thread the session service needs. An ANR on every question is worse than the OEM gap it
+        // closes, so the activity stays the only host until the composition is moved off the
+        // critical path. The code and its tests stay here, wired and ready, behind this flag.
+        if (!ENABLED) return
         try {
             val ui = holder.ui.value
             val state = controller.state.value
@@ -281,6 +288,13 @@ class OverlayHost @Inject constructor(
             // The same first-frame colour as `Theme.Sadiq.Intercept`: a transparent window over
             // Instagram reads as a flicker, and a white one reads as a different app.
             setBackgroundColor(service.getColor(R.color.page_dark))
+            // Owners belong on the root, not only on the ComposeView: the decor that `addView`
+            // creates asks the view it is given for a lifecycle, and a window whose root has none
+            // throws "ViewTreeLifecycleOwner not found" on the first frame — inside the service's
+            // process, which kills the app and the guard with it.
+            setViewTreeLifecycleOwner(lifecycleOwner)
+            setViewTreeViewModelStoreOwner(lifecycleOwner)
+            setViewTreeSavedStateRegistryOwner(lifecycleOwner)
             addView(
                 composeView,
                 FrameLayout.LayoutParams(
@@ -369,6 +383,16 @@ class OverlayHost @Inject constructor(
 
     private companion object {
         const val TAG: String = OverlayWindow.TAG
+
+        /**
+         * Whether the fallback may draw at all.
+         *
+         * False because the first device run showed the window draws and then the process ANRs in
+         * `SessionService` (the service's 20 s exec timeout) with a 109 s `eventToVisible`. Nothing
+         * else in the app is allowed to be a reason the question is late, so this stays false until
+         * the composition is off the main thread's critical path and a device run is clean.
+         */
+        const val ENABLED: Boolean = false
 
         /** Identical answers closer together than this are one answer. */
         const val DUPLICATE_WINDOW_MS: Long = 1_000L

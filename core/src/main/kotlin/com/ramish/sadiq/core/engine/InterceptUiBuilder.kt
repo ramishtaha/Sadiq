@@ -4,6 +4,7 @@ import com.ramish.sadiq.core.insight.ReflectionReason
 import com.ramish.sadiq.core.insight.Suggestion
 import com.ramish.sadiq.core.insight.SuggestionContext
 import com.ramish.sadiq.core.model.GuardContext
+import com.ramish.sadiq.core.model.PrayerDay
 import com.ramish.sadiq.core.time.TimeSnapshot
 
 /**
@@ -68,7 +69,7 @@ object InterceptUiBuilder {
             focusRemainingMs = state.focus?.let { (it.plannedMs - it.elapsedMs).coerceAtLeast(0L) },
             prayer = if (kind == SurfaceKind.PRAYER) ctx.window.prayer else null,
             isJumuah = kind == SurfaceKind.PRAYER && ctx.window.isJumuah,
-            nextFajrWall = ctx.today.nextFajr,
+            nextFajrWall = nextFajrAt(ctx.today, now.wallMs),
             windowEndWall = ctx.window.endWall,
             reflectionOpens = if (kind == SurfaceKind.REFLECT) facts.reflectionOpens else null,
             reflectReason = prompt.reflectReason,
@@ -152,6 +153,16 @@ object InterceptUiBuilder {
         val all = if (remainingMin !in fixed) listOf(remainingMin) else emptyList()
         return (base + all).distinct().sorted().take(EngineRules.MAX_STAY_CHIPS)
     }
+
+    /**
+     * The Fajr the sleep-gate line names: the next one at or after [nowWall].
+     *
+     * [PrayerDay.nextFajr] is tomorrow's adhan by definition, so reading it alone said "24 h 44 min
+     * from now" at 4:39 AM with Fajr at 5:24 — the one hour the gate is most likely to be read. Before
+     * today's adhan the honest answer is today's [PrayerDay.fajr]; after it, tomorrow's.
+     */
+    private fun nextFajrAt(day: PrayerDay, nowWall: Long): Long =
+        if (day.fajr > nowWall) day.fajr else day.nextFajr
 
     /** The suggester's input, assembled from the context the schedule already computed. */
     fun suggestionContext(
