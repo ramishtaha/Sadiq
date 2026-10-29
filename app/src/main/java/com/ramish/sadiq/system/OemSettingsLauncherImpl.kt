@@ -68,8 +68,13 @@ class OemSettingsLauncherImpl @Inject constructor(
      * Resolves one extra into the type the target activity expects.
      *
      * The `when` is not just a lookup: each branch picks the `Intent.putExtra` overload that matches
-     * the value's real type, so the component extra arrives as a `ComponentName` and the uid as an
-     * int rather than as a string the activity would silently ignore.
+     * what the target activity actually reads, so a package name arrives as a string and the uid as
+     * an int rather than as a type the activity would silently ignore.
+     *
+     * `EXTRA_COMPONENT_NAME` is a **string**, not a `ComponentName`. AOSP's and MIUI's
+     * `AccessibilityDetailsSettingsFragment` read it with `getStringExtra(...)` and
+     * `unflattenFromString(...)`, so a Parcelable arrives as null and the page silently falls back to
+     * the general Accessibility list — which is what used to happen to O5 on the AVD.
      */
     private fun putExtra(intent: Intent, name: String, extra: IntentExtra) {
         when (extra) {
@@ -78,7 +83,8 @@ class OemSettingsLauncherImpl @Inject constructor(
             IntentExtra.PackageUid -> intent.putExtra(name, Process.myUid())
             IntentExtra.SelfAccessibilityComponent -> intent.putExtra(
                 name,
-                ComponentName(context.packageName, IntentCandidates.ACCESSIBILITY_SERVICE_CLASS),
+                ComponentName(context.packageName, IntentCandidates.ACCESSIBILITY_SERVICE_CLASS)
+                    .flattenToString(),
             )
 
             is IntentExtra.Literal -> intent.putExtra(name, extra.value)

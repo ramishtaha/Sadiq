@@ -2,6 +2,7 @@ package com.ramish.sadiq.ui.guardtab
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ramish.sadiq.contract.ApplyResult
 import com.ramish.sadiq.contract.InstalledAppsSource
 import com.ramish.sadiq.contract.SettingsRepository
 import com.ramish.sadiq.core.apps.AppCatalog
@@ -42,7 +43,16 @@ class AppPickerViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
-    private val _selectedPackages = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * The apps he ticked himself, held as a delta rather than as a copy of the selection.
+     *
+     * The field this replaces was overwritten with the config's package set on **every** config
+     * emission, so a "Think it over" change landing, or the mode changing, while he was mid-edit
+     * un-ticked every app he had just ticked. A delta cannot be erased by an emission: a new tick
+     * stays ticked until he un-ticks it. The config half of the selection is read live in [uiState].
+     */
+    private val _added = MutableStateFlow<Set<String>>(emptySet())
 
     /** Apps the user explicitly un-ticked, so saving can remove them instead of re-adding them. */
     private val _removed = MutableStateFlow<Set<String>>(emptySet())
@@ -51,22 +61,31 @@ class AppPickerViewModel @Inject constructor(
     @Volatile
     private var installedLabels: Map<String, String> = emptyMap()
 
+    /**
+     * True while a save's write is open.
+     *
+     * Only touched on the main thread, from [saveGuardedApps]. A second tap before the first write
+     * returns would queue a second save and a second pop, and the second pop would take him past
+     * the Guard tab.
+     */
+    private var saveInFlight: Boolean = false
+
     val uiState: StateFlow<AppPickerUiState> = combine(
         _query,
         settingsRepository.config.map { it.apps.map { it.packageName }.toSet() },
-        _selectedPackages,
+        _added,
         _removed,
         flow {
             val apps = installedAppsSource.launchableApps().filter { it.packageName !in AppCatalog.baseNeverGuard }
             installedLabels = apps.associate { it.packageName to it.label }
             emit(apps)
         },
-    ) { query, configGuardedPackages, selectedPackages, removed, installedApps ->
-        // A row is ticked only when it is guarded AND he has not just un-ticked it. Without the
-        // `removed` term a guarded app could never render unticked: he taps it off and it comes
-        // straight back on, so saving silently re-guards the app he was trying to drop.
+    ) { query, configGuardedPackages, added, removed, installedApps ->
+        // A row is ticked only when it is guarded (by the config or his new tick) AND he has not
+        // just un-ticked it. The config half is read live, so an app guarded by another screen shows
+        // as ticked; the `added` half is his own pending tick and no emission can take it away.
         fun isOn(pkg: String): Boolean =
-            !removed.contains(pkg) && (configGuardedPackages.contains(pkg) || selectedPackages.contains(pkg))
+            pkg !in removed && (pkg in configGuardedPackages || pkg in added)
 
         val filteredApps = installedApps.filter { it.label.contains(query, ignoreCase = true) }
 
@@ -93,7 +112,7 @@ class AppPickerViewModel @Inject constructor(
             query = query,
             suggestedApps = suggestedFeeds,
             allApps = allOtherApps,
-            selectedPackages = (selectedPackages + configGuardedPackages) - removed,
+            selectedPackages = (configGuardedPackages + added) - removed,
             loading = false,
             installedAppsSource = installedAppsSource,
         )
@@ -103,36 +122,53 @@ class AppPickerViewModel @Inject constructor(
         initialValue = AppPickerUiState()
     )
 
-    init {
-        viewModelScope.launch {
-            settingsRepository.config.collect { config ->
-                _selectedPackages.value = config.apps.map { it.packageName }.toSet()
-            }
-        }
-    }
-
     fun onQueryChange(newQuery: String) {
         _query.value = newQuery
     }
 
     fun onAppToggle(packageName: String, label: String, isSelected: Boolean) {
         if (isSelected) {
-            _selectedPackages.value = _selectedPackages.value.plus(packageName)
+            _added.value = _added.value.plus(packageName)
             _removed.value = _removed.value.minus(packageName)
         } else {
-            _selectedPackages.value = _selectedPackages.value.minus(packageName)
+            _added.value = _added.value.minus(packageName)
             _removed.value = _removed.value.plus(packageName)
         }
     }
 
-    fun saveGuardedApps() {
+    /**
+     * Saves the whole selection, then reports what happened to it.
+     *
+     * The write used to be fire-and-forget while the screen popped at once. It runs in
+     * [viewModelScope], which the nav entry's destruction cancels at the end of the exit transition,
+     * so a slow first Room open rolled the transaction back and he was taken back to a Guard tab
+     * that had not changed. [onDone] is the fix: it is called after [SettingsRepository.apply]
+     * returned, on the main thread (`viewModelScope` is `Dispatchers.Main.immediate`, and a
+     * suspension resumes on the dispatcher it started on), and the screen pops from there.
+     *
+     * A package that is already configured is written back as the same [GuardedApp], so its
+     * `surfaceMode` survives. Rebuilding it from the package and label would silently reset a
+     * `SHORTS_ONLY` app to `WHOLE_APP` on every save.
+     *
+     * @param onDone called with the [ApplyResult] once the change has been applied or scheduled.
+     */
+    fun saveGuardedApps(onDone: (ApplyResult) -> Unit) {
+        if (saveInFlight) return
+        saveInFlight = true
         viewModelScope.launch {
-            // The saved set is the full selection, not the rows the search box happens to show.
-            // Saving the filtered rows used to un-guard every app the user had searched past.
-            val guarded = settingsRepository.config.value.apps.map { it.packageName }.toSet()
-            val wanted = (guarded + _selectedPackages.value) - _removed.value
-            val apps = wanted.map { pkg -> GuardedApp(pkg, installedLabels[pkg] ?: pkg) }
-            settingsRepository.apply(SettingsChange.SetApps(apps))
+            try {
+                // The saved set is the full selection, not the rows the search box happens to show.
+                // Saving the filtered rows used to un-guard every app the user had searched past.
+                // Zero is a valid selection: un-guarding the last app has to be possible.
+                val current = settingsRepository.config.value.apps.associateBy { it.packageName }
+                val wanted = (current.keys + _added.value) - _removed.value
+                val apps = wanted.map { pkg ->
+                    current[pkg] ?: GuardedApp(pkg, installedLabels[pkg] ?: pkg)
+                }
+                onDone(settingsRepository.apply(SettingsChange.SetApps(apps)))
+            } finally {
+                saveInFlight = false
+            }
         }
     }
 }

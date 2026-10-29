@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="onboarding_popups_headline">So Sadiq can step in instantly.</string>
-    <string name="onboarding_popups_body">HyperOS needs a special permission to show a full-screen pop-up. Without it, Sadiq uses a backup layer that is slower.</string>
+    <string name="onboarding_popups_body">HyperOS needs a special permission to show a full-screen pop-up. Without it, Sadiq may take a moment longer to ask.</string>
     <string name="onboarding_popups_action">Open pop-up settings</string>
 
     <string name="onboarding_batterysaver_headline">Sadiq needs "No restrictions" in Battery saver.</string>

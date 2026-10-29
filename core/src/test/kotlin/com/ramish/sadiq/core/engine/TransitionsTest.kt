@@ -1,5 +1,6 @@
 package com.ramish.sadiq.core.engine
 
+import com.ramish.sadiq.core.economy.DefaultStarEconomy
 import com.ramish.sadiq.core.economy.LeaveDecision
 import com.ramish.sadiq.core.insight.ReflectionReason
 import com.ramish.sadiq.core.model.GuardContext
@@ -837,6 +838,95 @@ class TransitionsTest {
         assertTrue(rig.state.kindles.isEmpty())
         assertTrue(economy.calls.none { it == "confirmKindle" })
         assertEquals(SurfaceKind.PAUSE, rig.state.prompt?.kind)
+    }
+
+    // ── A4-04 ─────────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Rule zero at the end of a Stay: the TIME_UP that lands inside a prayer window keeps its answer,
+     * and the reducer accepts exactly the chips the surface showed. A chip above the prayer cap is not
+     * a chip the surface offers, so it must be refused rather than granted.
+     */
+    @Test
+    fun A4_04_aTimeUpInAPrayerWindowStillStaysWithinThePrayerCap() {
+        val now = Fixtures.EVENING
+        val prayer = Fixtures.context(now = now, window = Fixtures.maghribWindow(now = now.wallMs))
+        val spent = Fixtures.state(
+            now = now,
+            phase = Phase.GRANTED,
+            foregroundPackage = Fixtures.INSTAGRAM.packageName,
+            foregroundGuarded = true,
+            grant = Fixtures.grant(kind = GrantKind.STAY, grantedMs = 5 * MIN, consumedMs = 5 * MIN),
+            budget = Fixtures.budget(remainingMs = 10 * MIN),
+        )
+        val rig = Rig(initial = spent)
+
+        rig.tick(at = now, context = prayer)
+        assertEquals(SurfaceKind.TIME_UP, rig.state.prompt?.kind)
+        assertEquals(listOf(2, 5), rig.ui().stayOptionsMin)
+
+        rig.choose(Choice.Stay(15), at = now, context = prayer)
+        assertEquals(Phase.PROMPTING, rig.state.phase, "a chip above the prayer cap must be refused")
+        assertTrue(rig.effects.isEmpty())
+
+        rig.choose(Choice.Stay(5), at = now, context = prayer)
+        assertEquals(Phase.GRANTED, rig.state.phase)
+        assertEquals(GrantKind.STAY, rig.state.grant?.kind)
+        assertEquals(EngineRules.PRAYER_STAY_MAX_MIN * MIN, rig.state.grant?.grantedMs)
+    }
+
+    // ── A4-09 ─────────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * E1 excludes FOCUS_GUARD, and the surface says so (`leaveEarnsStar` is false there). Back,
+     * gesture and screen-off are three different doors into the same leave, so all three are run
+     * against the real economy, where the star is observed where it actually lands: `litLeave` after
+     * the kindle's three quiet minutes. A normal prompt keeps paying on those same three doors.
+     */
+    @Test
+    fun A4_09_everyExitFromTheFocusSurfaceLeavesTheStarUnlit() {
+        for (exit in Exit.entries) {
+            val paid = leaveAndWait(SurfaceKind.FOCUS_GUARD, exit)
+            assertEquals(0, paid.economy.litLeave, "leaving FOCUS_GUARD by $exit must pay nothing")
+            assertTrue(paid.kindles.isEmpty(), "leaving FOCUS_GUARD by $exit must not wait on a kindle")
+        }
+        for (exit in Exit.entries) {
+            val paid = leaveAndWait(SurfaceKind.PAUSE, exit)
+            assertEquals(1, paid.economy.litLeave, "leaving PAUSE by $exit still earns its star")
+        }
+    }
+
+    /** The three ways a surface can be left without answering it. */
+    private enum class Exit { BACK, GESTURE, SCREEN_OFF }
+
+    /**
+     * Shows [surface], leaves it by [exit], then waits out the kindle.
+     *
+     * @return the state after the three quiet minutes, so the caller can read `economy.litLeave`.
+     */
+    private fun leaveAndWait(surface: SurfaceKind, exit: Exit): EngineState {
+        val now = Fixtures.EVENING
+        val ctx = Fixtures.context(now = now)
+        val engine = GuardEngine(DefaultStarEconomy(), FakeReflectionPolicy(), FakeSuggester())
+        val focus = if (surface == SurfaceKind.FOCUS_GUARD) {
+            Fixtures.focus(plannedMs = 25 * MIN, lastAccountedElapsed = now.elapsedMs)
+        } else {
+            null
+        }
+        var state = Fixtures.state(now = now, focus = focus)
+        state = engine.reduce(state, GuardInput.ForegroundChanged(Fixtures.INSTAGRAM.packageName), now, ctx).state
+        assertEquals(surface, state.prompt?.kind, "the setup must actually show $surface")
+
+        val leaveAt = TestTime.after(now, 1)
+        val leaving = when (exit) {
+            Exit.BACK -> GuardInput.Chose(Choice.Leave)
+            Exit.GESTURE -> GuardInput.ForegroundChanged("com.example.news")
+            Exit.SCREEN_OFF -> GuardInput.ScreenOff
+        }
+        state = engine.reduce(state, leaving, leaveAt, ctx).state
+        assertEquals(Phase.IDLE, state.phase, "the $exit leave must end the surface")
+
+        return engine.reduce(state, GuardInput.Tick, TestTime.after(leaveAt, 4), ctx).state
     }
 }
 

@@ -56,11 +56,20 @@ class FakeSettingsRepository(
     /** What [apply] returns. [ApplyResult.Applied] unless a test needs the delayed path. */
     var applyResult: ApplyResult = ApplyResult.Applied
 
+    /**
+     * An optional hook that runs inside [apply], after the change is recorded and before it returns.
+     *
+     * A test uses it to hold a write open (`release.await()`), which is the slow-Room-open case, and
+     * assert what the caller does while the transaction is still in flight.
+     */
+    var beforeApplyReturns: (suspend () -> Unit)? = null
+
     /** How many overlay fallbacks have been counted per logical day. */
     val overlayFallbacks: MutableMap<Int, Int> = mutableMapOf()
 
     override suspend fun apply(change: SettingsChange): ApplyResult {
         applied += change
+        beforeApplyReturns?.invoke()
         return applyResult
     }
 

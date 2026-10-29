@@ -75,6 +75,16 @@ internal class OverlayWindow(private val windowManager: WindowManager) {
         const val TAG: String = "SP/Overlay"
 
         /**
+         * Whether any host may draw the fallback at all.
+         *
+         * The single source of truth for "is there a backup layer": [OverlayHost] refuses to draw
+         * unless this is true, and the presenter must not ask for it, count it, or promise it in copy
+         * while it is false. False because the first device run crashed the process on the fallback's
+         * first frame (AUDIT-4 A4-01) and has never been re-run since the fix.
+         */
+        const val HOST_ENABLED: Boolean = false
+
+        /**
          * The window's parameters.
          *
          * Three flags matter and one absence does:

@@ -5,6 +5,7 @@ import com.ramish.sadiq.core.insight.Suggestion
 import com.ramish.sadiq.core.insight.SuggestionContext
 import com.ramish.sadiq.core.model.GuardContext
 import com.ramish.sadiq.core.model.PrayerDay
+import com.ramish.sadiq.core.model.WindowKind
 import com.ramish.sadiq.core.time.TimeSnapshot
 
 /**
@@ -75,7 +76,9 @@ object InterceptUiBuilder {
             reflectReason = prompt.reflectReason,
             timeUpKind = timeUpKind,
             leaveEarnsStar = when (kind) {
-                // No leave star while focusing: the focus session is what pays (T15).
+                // No leave star while focusing: the focus session is what pays (T15), and the engine
+                // refuses the award for exactly this kind on every exit path, so this `false` and the
+                // kindle gate in `applyLeave` are one rule read in two places (A4-09).
                 SurfaceKind.FOCUS_GUARD -> false
                 // The self-test promises the first star; onboarding lights it, not the engine (E9).
                 SurfaceKind.TEST -> true
@@ -96,14 +99,18 @@ object InterceptUiBuilder {
      * The Stay chips for a surface, in minutes.
      *
      * PRAYER always has Stay (rule zero: no surface may withhold it in a prayer window) and caps it at
-     * [EngineRules.PRAYER_STAY_MAX_MIN]. MORNING offers one two-minute hold. The harder surfaces (sleep
-     * gate, focus guard, test) offer no Stay at all — their soft option is the one-minute quick need or
-     * ending the focus.
+     * [EngineRules.PRAYER_STAY_MAX_MIN], and so does every other surface that offers Stay while that
+     * window is open: a prompt shown before the adhan must not offer fifteen minutes through Maghrib,
+     * and a grant that ran out at Asr must still be able to say "a little more" (A4-04). MORNING offers
+     * one two-minute hold. The harder surfaces (sleep gate, focus guard, test) offer no Stay at all —
+     * their soft option is the one-minute quick need or ending the focus, and the resolver never leaves
+     * one of them on screen inside a prayer window.
      */
     fun stayOptions(kind: SurfaceKind, state: EngineState, ctx: GuardContext): List<Int> = when (kind) {
         SurfaceKind.PRAYER -> prayerChips()
         SurfaceKind.MORNING -> listOf(EngineRules.MORNING_STAY_MIN)
-        SurfaceKind.PAUSE, SurfaceKind.REFLECT -> budgetChips(state.budget)
+        SurfaceKind.PAUSE, SurfaceKind.REFLECT ->
+            if (ctx.window.kind == WindowKind.PRAYER) prayerChips() else budgetChips(state.budget)
         SurfaceKind.TIME_UP -> timeUpChips(state, ctx)
         SurfaceKind.COOLDOWN,
         SurfaceKind.SLEEP_GATE,
@@ -113,6 +120,9 @@ object InterceptUiBuilder {
     }
 
     private fun timeUpChips(state: EngineState, ctx: GuardContext): List<Int> {
+        // Rule zero: a prayer window never withholds Stay, whatever kind of time just ran out. The
+        // prayer chips are already capped, so a Stay chosen here cannot reach into the window's end.
+        if (ctx.window.kind == WindowKind.PRAYER) return prayerChips()
         val expired = state.grant?.kind
         val expiredStay = expired == null || expired == GrantKind.STAY
         if (!expiredStay) return emptyList()

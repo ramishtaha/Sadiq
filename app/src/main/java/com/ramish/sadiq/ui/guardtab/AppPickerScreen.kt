@@ -100,11 +100,11 @@ fun AppPickerScreen(navController: NavController, viewModel: AppPickerViewModel 
             Column(modifier = Modifier.padding(Spacing.xl)) {
                 PrimaryPillButton(
                     text = stringResource(R.string.app_picker_button_guard_apps, uiState.selectedPackages.size),
-                    onClick = {
-                        viewModel.saveGuardedApps()
-                        navController.popBackStack()
-                    },
-                    enabled = uiState.selectedPackages.isNotEmpty()
+                    // Pop only once the write has returned. Popping here used to cancel the save's
+                    // coroutine at the end of the exit transition, so a slow Room open rolled the
+                    // transaction back and the user landed on an unchanged Guard tab. Zero is
+                    // allowed: he must be able to un-guard his last app.
+                    onClick = { viewModel.saveGuardedApps { navController.popBackStack() } }
                 )
             }
         }

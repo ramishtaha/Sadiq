@@ -58,6 +58,73 @@ class InvariantsTest {
     }
 
     /**
+     * A4-04, as a property rather than a story: whatever the engine is holding when the adhan lands —
+     * a grant that just ran out, a budget at zero, a rest, a focus — every surface built inside the
+     * prayer window still offers Stay, and none of them offers more than the prayer cap.
+     *
+     * This is the check the audit asked for, and it is why `TIME_UP` cannot be the one surface that
+     * withholds Stay at Asr: a Stay that ran out there is answered by another capped Stay, not by
+     * "take me home" alone. The kinds that never offer a Stay at all are deliberately absent — the
+     * resolver upgrades them to PRAYER before they can be shown in the window, so an empty list there
+     * is not a prayer-window surface.
+     */
+    @Test
+    fun A4_04_everyStayBuiltInAPrayerWindowIsOfferedAndCapped() {
+        val now = Fixtures.EVENING
+        val ctx = Fixtures.context(
+            now = now,
+            window = Fixtures.window(kind = WindowKind.PRAYER, prayer = PrayerName.MAGHRIB),
+        )
+        val facts = UiFacts(
+            freeScrollAvailableMs = 10 * MIN,
+            quickNeedsLeft = 3,
+            reflectionOpens = 0,
+            leaveEarnsStar = true,
+        )
+        val expiredGrants = listOf<GrantKind?>(
+            null,
+            GrantKind.STAY,
+            GrantKind.FREE,
+            GrantKind.QUICK,
+            GrantKind.PRAYER_STAY,
+        )
+        val budgets = listOf(10 * MIN, 5 * MIN, 0L)
+
+        for (kind in STAY_SURFACES) {
+            for (expired in expiredGrants) {
+                for (budget in budgets) {
+                    for (rest in listOf(null, Fixtures.rest())) {
+                        for (focus in listOf(null, Fixtures.focus())) {
+                            val prompt = Fixtures.prompt(kind = kind)
+                            val state = Fixtures.state(
+                                now = now,
+                                phase = Phase.PROMPTING,
+                                prompt = prompt,
+                                grant = expired?.let {
+                                    Fixtures.grant(kind = it, grantedMs = MIN, consumedMs = MIN)
+                                },
+                                budget = Fixtures.budget(remainingMs = budget),
+                                rest = rest,
+                                focus = focus,
+                            )
+                            val ui = InterceptUiBuilder.build(state, prompt, ctx, now, facts, suggestion = null)
+                            val where = "$kind expired=$expired budget=$budget rest=${rest != null} " +
+                                "focus=${focus != null}"
+                            if (ui.stayOptionsMin.isEmpty()) {
+                                fail("a prayer-window surface withholds Stay at $where")
+                            }
+                            val over = ui.stayOptionsMin.filter { it > EngineRules.PRAYER_STAY_MAX_MIN }
+                            if (over.isNotEmpty()) {
+                                fail("$where offers $over min past the prayer cap")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * One deterministic walk through the state machine.
      *
      * @property seed the only source of variation.
@@ -308,8 +375,17 @@ class InvariantsTest {
                     is Effect.UpdateSurface -> effect.ui
                     else -> null
                 } ?: continue
-                if (ui.kind == SurfaceKind.PRAYER && ui.stayOptionsMin.isEmpty()) {
-                    fail("a PRAYER surface without Stay at $where")
+                // Rule zero in a prayer window, for every surface the engine builds there: Stay is
+                // never withheld, never capped above the prayer cap, no matter what the engine was
+                // holding when the adhan landed (A4-04).
+                if (ctx.window.kind == WindowKind.PRAYER && ui.kind in InvariantsTest.STAY_SURFACES) {
+                    if (ui.stayOptionsMin.isEmpty()) {
+                        fail("a prayer-window ${ui.kind} without Stay at $where")
+                    }
+                    val over = ui.stayOptionsMin.filter { it > EngineRules.PRAYER_STAY_MAX_MIN }
+                    if (over.isNotEmpty()) {
+                        fail("a prayer-window ${ui.kind} offering $over min at $where")
+                    }
                 }
             }
         }
@@ -317,5 +393,19 @@ class InvariantsTest {
         private companion object {
             val GRANT_PHASES = setOf(Phase.GRANTED, Phase.HELD, Phase.PAUSED)
         }
+    }
+
+    private companion object {
+        /**
+         * The surfaces that offer a Stay at all. The hard ones never do, and the resolver upgrades
+         * them to PRAYER before a prayer window can show them, so they are outside the property.
+         */
+        val STAY_SURFACES: List<SurfaceKind> = listOf(
+            SurfaceKind.PRAYER,
+            SurfaceKind.MORNING,
+            SurfaceKind.PAUSE,
+            SurfaceKind.REFLECT,
+            SurfaceKind.TIME_UP,
+        )
     }
 }

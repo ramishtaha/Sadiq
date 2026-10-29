@@ -26,7 +26,7 @@ import kotlinx.coroutines.test.runTest
 class SurfacePresenterTest {
 
     @Test
-    fun noVisibleReportWithin600msRequestsTheOverlay() = runTest {
+    fun aMissedWindowNeverRequestsAnOverlayThatCannotDraw() = runTest {
         val rig = Rig(backgroundScope)
 
         rig.presenter.show(testUi())
@@ -37,8 +37,11 @@ class SurfacePresenterTest {
         advanceTimeBy(2)
         runCurrent()
 
-        assertTrue(rig.holder.overlayRequested.value)
-        assertEquals(1, rig.settings.overlayFallbacks.values.sum())
+        // The fallback host is off (AUDIT-4 A4-01: its first frame crashed the process). A request
+        // with nothing to draw it would leave the surface stuck and count a fallback that never
+        // happened, and it is what makes the pop-ups card lie. The activity stays the only host.
+        assertFalse(rig.holder.overlayRequested.value, "no host may be asked for while the host is off")
+        assertTrue(rig.settings.overlayFallbacks.isEmpty(), "a fallback that did not happen is not counted")
     }
 
     @Test
@@ -101,14 +104,17 @@ class SurfacePresenterTest {
         val rig = Rig(backgroundScope)
         rig.presenter.show(testUi())
         advance(rig, 700)
-        assertTrue(rig.holder.overlayRequested.value)
+        // The activity reports itself in this rig, which is what a working device does; the fallback
+        // is off, so the only question here is whether each question gets its own launch.
+        rig.holder.reportVisible(viaOverlay = false)
+        assertFalse(rig.holder.overlayRequested.value)
 
         rig.presenter.show(testUi())
         assertFalse(rig.holder.overlayRequested.value, "a new question starts with no overlay")
         advance(rig, 700)
 
-        assertTrue(rig.holder.overlayRequested.value)
-        assertEquals(2, rig.settings.overlayFallbacks.values.sum())
+        assertFalse(rig.holder.overlayRequested.value, "and still never asks for one while it is off")
+        assertTrue(rig.settings.overlayFallbacks.isEmpty())
         assertEquals(2, rig.launcher.launches)
     }
 

@@ -143,10 +143,11 @@ class InterceptActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         Log.i(TAG, "onResume")
-        // Report this activity as visible only if the overlay is not already showing.
-        if (!holder.overlayRequested.value) {
-            holder.reportVisible(viaOverlay = false)
-        }
+        // The activity always reports itself: it is the primary host (§3.6), and a report is also how
+        // a late activity takes a question back from the fallback. Gating this on `overlayRequested`
+        // meant a slow activity never reported at all, so the surface kept an overlay request nobody
+        // could satisfy and no latency was ever recorded.
+        holder.reportVisible(viaOverlay = false)
     }
 
     /**

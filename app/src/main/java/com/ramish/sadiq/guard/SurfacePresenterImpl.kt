@@ -10,6 +10,7 @@ import com.ramish.sadiq.core.engine.InterceptUi
 import com.ramish.sadiq.core.time.Clock
 import com.ramish.sadiq.core.time.LogicalDays
 import com.ramish.sadiq.di.GuardWork
+import com.ramish.sadiq.intercept.OverlayWindow
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -112,6 +113,10 @@ class SurfacePresenterImpl @Inject constructor(
             delay(OVERLAY_FALLBACK_MS)
             // The activity won its window, or the question was answered before it appeared.
             if (holder.ui.value == null || holder.isVisible()) return@launch
+            // There is no backup layer to ask for while the host is off (AUDIT-4 A4-01): asking would
+            // leave `overlayRequested` true with nothing to draw it, and counting it would show him a
+            // card promising a layer that does not exist.
+            if (!OverlayWindow.HOST_ENABLED) return@launch
             holder.requestOverlay()
             val now = clock.now()
             settings.bumpOverlayFallback(LogicalDays.of(now.wallMs, now.zoneId))

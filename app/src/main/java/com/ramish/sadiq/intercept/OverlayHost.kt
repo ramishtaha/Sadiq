@@ -392,7 +392,7 @@ class OverlayHost @Inject constructor(
          * else in the app is allowed to be a reason the question is late, so this stays false until
          * the composition is off the main thread's critical path and a device run is clean.
          */
-        const val ENABLED: Boolean = false
+        const val ENABLED: Boolean = OverlayWindow.HOST_ENABLED
 
         /** Identical answers closer together than this are one answer. */
         const val DUPLICATE_WINDOW_MS: Long = 1_000L

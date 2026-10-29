@@ -499,7 +499,7 @@ class GuardEngine(
         )
         val grant = st.grant
         if (grant != null) st = closeGrant(st, GrantEnd.DISCARDED, now, ctx, effects)
-        return applyLeave(st, LeaveKind.LEFT_GESTURE, now, ctx, grant, prompt.packageName, effects)
+        return applyLeave(st, prompt.kind, LeaveKind.LEFT_GESTURE, now, ctx, grant, prompt.packageName, effects)
     }
 
     /** A self-test that loses the foreground ends the same way it would from Leave, without a star. */
@@ -688,7 +688,7 @@ class GuardEngine(
                 )
                 val grant = st.grant
                 if (grant != null) st = closeGrant(st, GrantEnd.DISCARDED, now, ctx, effects)
-                applyLeave(st, LeaveKind.SCREEN_OFF, now, ctx, grant, prompt.packageName, effects)
+                applyLeave(st, prompt.kind, LeaveKind.SCREEN_OFF, now, ctx, grant, prompt.packageName, effects)
             }
         }
         Phase.GRANTED -> holdGrant(state, state.foregroundPackage, now, effects).copy(
@@ -781,7 +781,7 @@ class GuardEngine(
         } else {
             LeaveKind.LEFT_PROMPT
         }
-        return applyLeave(st, leave, now, ctx, grant, prompt.packageName, effects)
+        return applyLeave(st, prompt.kind, leave, now, ctx, grant, prompt.packageName, effects)
     }
 
     /** T09: Stay. */
@@ -797,7 +797,11 @@ class GuardEngine(
         if (minutes !in options) return state
         val restActive = restActive(state)
         val kind = if (restActive) GrantKind.PRAYER_STAY else GrantKind.STAY
-        val capped = if (kind == GrantKind.PRAYER_STAY) {
+        // A Stay taken inside a prayer window is a prayer Stay in length even when no rest is running:
+        // the chips on screen are the prayer chips, and a grant longer than the cap they promise would
+        // let fifteen minutes run through Maghrib (A4-04, §3.6 rule zero).
+        val inPrayerWindow = ctx.window.kind == WindowKind.PRAYER
+        val capped = if (kind == GrantKind.PRAYER_STAY || inPrayerWindow) {
             minOf(minutes, EngineRules.PRAYER_STAY_MAX_MIN)
         } else {
             minutes
@@ -1037,7 +1041,7 @@ class GuardEngine(
         effects += Effect.Live(LiveState.None)
         var st = closeGrant(state, GrantEnd.DONE_EARLY, now, ctx, effects)
         st = st.copy(phase = Phase.IDLE, prompt = null, foregroundGuarded = false, foregroundPackage = null)
-        return applyLeave(st, LeaveKind.DONE_EARLY, now, ctx, grant, grant.firstPackage, effects)
+        return applyLeave(st, null, LeaveKind.DONE_EARLY, now, ctx, grant, grant.firstPackage, effects)
     }
 
     /** T25: Pause, only ever for a Stay grant. */
@@ -1079,7 +1083,7 @@ class GuardEngine(
         effects += Effect.Live(LiveState.None)
         var st = closeGrant(state, GrantEnd.LEFT, now, ctx, effects)
         st = st.copy(phase = Phase.IDLE, foregroundGuarded = false, foregroundPackage = null)
-        return applyLeave(st, LeaveKind.DONE_EARLY, now, ctx, grant, grant.firstPackage, effects)
+        return applyLeave(st, null, LeaveKind.DONE_EARLY, now, ctx, grant, grant.firstPackage, effects)
     }
 
     /** T27: sixty minutes are up, or he discarded the pause. */
@@ -1302,8 +1306,15 @@ class GuardEngine(
         return state.copy(grant = null)
     }
 
+    /**
+     * Hands a leave to the economy and starts the kindle it earns.
+     *
+     * @param surface the surface the leave came from, or null when no surface was involved (a grant
+     *   control from the notification).
+     */
     private fun applyLeave(
         state: EngineState,
+        surface: SurfaceKind?,
         leave: LeaveKind,
         now: TimeSnapshot,
         ctx: GuardContext,
@@ -1311,6 +1322,12 @@ class GuardEngine(
         sourcePackage: String?,
         effects: MutableList<Effect>,
     ): EngineState {
+        // E1 excludes FOCUS_GUARD: the focus session is what pays for that time (T15), which is why the
+        // surface never says "light a star". Back, a gesture and the screen going off all reach the
+        // economy through here, so gating on the surface the prompt was built for is what keeps that
+        // promise on every exit path — the star the button offers and the star the economy pays are one
+        // rule (A4-09). The economy cannot see a surface kind; the caller has to.
+        if (surface == SurfaceKind.FOCUS_GUARD) return state
         val (day, decision) = economy.onLeave(
             day = state.economy,
             leave = leave,
