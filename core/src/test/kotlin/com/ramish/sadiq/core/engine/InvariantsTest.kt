@@ -236,15 +236,19 @@ class InvariantsTest {
 
             if (input is GuardInput.ForegroundChanged && input.packageName == Guardedness.OWN_PACKAGE) {
                 // T19 is transparent: our own package never shows, dismisses, holds, ducks or goes home.
-                // Stars and records that fell due on this same input are housekeeping (T30/T34), not a
-                // reaction to the foreground change.
                 // Stars, a completed focus and a stopping sound can fall due on any input; they are
-                // housekeeping (T29/T30/T34), not a reaction to the foreground change.
+                // housekeeping (T29/T30/T34), not a reaction to the foreground change. A completed focus
+                // also resets notification id 1, and that Live belongs to the closed session for the same
+                // reason — it is only forgiven here when this transition actually closed one.
+                val closedFocus = transition.effects.any { effect ->
+                    effect is Effect.Record && effect.event is RecordEvent.FocusClosed
+                }
                 val due = setOf("Record(StarLit)", "StopSound")
                 val reacting = transition.effects.filter { effect ->
                     val tag = effect.tag()
                     !tag.startsWith("Record(") &&
                         !tag.startsWith("FocusCompleted(") &&
+                        !(closedFocus && effect is Effect.Live) &&
                         tag !in due
                 }
                 if (reacting.isNotEmpty()) {

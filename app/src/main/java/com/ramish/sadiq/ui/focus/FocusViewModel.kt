@@ -10,12 +10,16 @@ import com.ramish.sadiq.core.engine.Effect
 import com.ramish.sadiq.core.engine.GuardInput
 import com.ramish.sadiq.core.engine.Choice
 import com.ramish.sadiq.core.sound.SoundKind
+import com.ramish.sadiq.core.time.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.map
@@ -25,11 +29,14 @@ import javax.inject.Inject
 
 private const val MINUTE_MS: Long = 60_000L
 
+/** How often the running timer re-reads the clock; one second is the resolution the screen shows. */
+private const val TICK_MS: Long = 1_000L
+
 enum class FocusPhase { SETUP, RUNNING, DONE }
 
 data class FocusUiState(
     val phase: FocusPhase = FocusPhase.SETUP,
-    val selectedMin: Int = 25, // For SETUP, or displayed duration in RUNNING
+    val selectedMin: Int = 25, // The chip in SETUP; the session's length in RUNNING and DONE
     val selectedSound: SoundKind = SoundKind.NONE, // For SETUP
     val currentSound: SoundKind = SoundKind.NONE, // For RUNNING, from EngineState
     val projectedStars: Int = 0,
@@ -46,13 +53,36 @@ class FocusViewModel @Inject constructor(
     private val guardController: GuardController,
     private val settingsRepository: SettingsRepository,
     private val starEconomy: StarEconomy,
-    private val soundController: SoundController
+    private val soundController: SoundController,
+    private val clock: Clock
 ) : ViewModel() {
 
     private val _selectedMin = MutableStateFlow(25)
     private val _selectedSound = MutableStateFlow(SoundKind.NONE) // Sound selected in SETUP
     private val _confirmSheetVisible = MutableStateFlow(false)
     private val _lastResultStars = MutableStateFlow(0) // For the DONE phase, after FocusCompleted effect
+
+    /**
+     * The last planned length that was actually running.
+     *
+     * Once a session finishes the engine has no focus left to read, so the DONE screen would fall back
+     * to zero minutes. Remembering the length while the session exists keeps that screen truthful.
+     */
+    private var lastPlannedMin: Int = 0
+
+    /**
+     * A once-a-second reading of the clock the engine accounts against.
+     *
+     * `FocusState.elapsedMs` only advances when an engine input arrives, so without this the running
+     * screen would show the full length for the whole session. `elapsedMs` is `elapsedRealtime`
+     * (`SystemClockSource`), which is what [Clock] reports, so the two agree.
+     */
+    private val tick: Flow<Long> = flow {
+        while (true) {
+            emit(clock.now().elapsedMs)
+            delay(TICK_MS)
+        }
+    }
 
     /** The four controls the setup screen owns, folded into one flow so the combine stays typed. */
     private data class Controls(
@@ -75,8 +105,9 @@ class FocusViewModel @Inject constructor(
         guardController.state,
         settingsRepository.prefs,
         controls,
-        soundController.playing
-    ) { engineState, uiPrefs, control, soundPlaying ->
+        soundController.playing,
+        tick
+    ) { engineState, uiPrefs, control, soundPlaying, nowElapsed ->
 
         val focusState = engineState.focus
         val phase = when {
@@ -85,7 +116,13 @@ class FocusViewModel @Inject constructor(
             else -> FocusPhase.SETUP
         }
 
-        val selectedMin = if (phase == FocusPhase.SETUP) control.min else (focusState?.plannedMs?.div(MINUTE_MS)?.toInt() ?: 0)
+        // Written from the combine's sequential transform, so the remembered length is always the one
+        // from the freshest state: the DONE phase reads it after the focus has already left the engine.
+        if (focusState != null) lastPlannedMin = (focusState.plannedMs / MINUTE_MS).toInt()
+        val selectedMin = when (phase) {
+            FocusPhase.SETUP -> control.min
+            FocusPhase.RUNNING, FocusPhase.DONE -> lastPlannedMin
+        }
         val selectedSound = if (phase == FocusPhase.SETUP) control.sound else SoundKind.NONE
         val currentSound = focusState?.sound ?: SoundKind.NONE
 
@@ -96,7 +133,12 @@ class FocusViewModel @Inject constructor(
         }
 
         val plannedMs = focusState?.plannedMs ?: 0L
-        val remainingMs = focusState?.let { it.plannedMs - it.elapsedMs.coerceAtMost(it.plannedMs) } ?: 0L
+        // The engine's elapsed reading is a snapshot from its last input; the tick extends it to now on
+        // the same clock, so the timer moves between inputs instead of sitting at the full length.
+        val remainingMs = focusState?.let { focus ->
+            val live = focus.elapsedMs + (nowElapsed - focus.lastAccountedElapsed).coerceAtLeast(0L)
+            (focus.plannedMs - live).coerceIn(0L, focus.plannedMs)
+        } ?: 0L
         val earnedSoFar = if (focusState != null) {
             starEconomy.onFocusEnded(engineState.economy, focusState, false, 0L, engineState.economy.logicalDay).second.size
         } else {

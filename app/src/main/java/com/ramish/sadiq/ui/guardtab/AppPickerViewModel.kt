@@ -55,12 +55,19 @@ class AppPickerViewModel @Inject constructor(
         _query,
         settingsRepository.config.map { it.apps.map { it.packageName }.toSet() },
         _selectedPackages,
+        _removed,
         flow {
             val apps = installedAppsSource.launchableApps().filter { it.packageName !in AppCatalog.baseNeverGuard }
             installedLabels = apps.associate { it.packageName to it.label }
             emit(apps)
         },
-    ) { query, configGuardedPackages, selectedPackages, installedApps ->
+    ) { query, configGuardedPackages, selectedPackages, removed, installedApps ->
+        // A row is ticked only when it is guarded AND he has not just un-ticked it. Without the
+        // `removed` term a guarded app could never render unticked: he taps it off and it comes
+        // straight back on, so saving silently re-guards the app he was trying to drop.
+        fun isOn(pkg: String): Boolean =
+            !removed.contains(pkg) && (configGuardedPackages.contains(pkg) || selectedPackages.contains(pkg))
+
         val filteredApps = installedApps.filter { it.label.contains(query, ignoreCase = true) }
 
         val suggestedFeeds = AppCatalog.knownFeedsFirst(
@@ -70,7 +77,7 @@ class AppPickerViewModel @Inject constructor(
             AppRow(
                 packageName = appInfo.packageName,
                 label = appInfo.label,
-                isSelected = configGuardedPackages.contains(appInfo.packageName) || selectedPackages.contains(appInfo.packageName)
+                isSelected = isOn(appInfo.packageName)
             )
         }
 
@@ -78,7 +85,7 @@ class AppPickerViewModel @Inject constructor(
             AppRow(
                 packageName = appInfo.packageName,
                 label = appInfo.label,
-                isSelected = configGuardedPackages.contains(appInfo.packageName) || selectedPackages.contains(appInfo.packageName)
+                isSelected = isOn(appInfo.packageName)
             )
         }
 
@@ -86,7 +93,7 @@ class AppPickerViewModel @Inject constructor(
             query = query,
             suggestedApps = suggestedFeeds,
             allApps = allOtherApps,
-            selectedPackages = selectedPackages.ifEmpty { configGuardedPackages },
+            selectedPackages = (selectedPackages + configGuardedPackages) - removed,
             loading = false,
             installedAppsSource = installedAppsSource,
         )

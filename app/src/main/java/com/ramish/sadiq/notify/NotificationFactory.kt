@@ -81,7 +81,9 @@ class NotificationFactory @Inject constructor(
             .setUsesChronometer(true)
             .setChronometerCountDown(true)
             .addAction(doneEarlyAction())
-            .addAction(action(R.string.notify_action_save_rest, NotificationContract.ACTION_PAUSE, RC_SAVE_REST))
+            // No "Save the rest" action: a paused grant cannot be resumed yet (no button submits
+            // Choice.Resume), so offering it promised time the app could not give back. It returns
+            // with the Resume button, not before.
 
         promoteIfSupported(
             builder = builder,

@@ -173,7 +173,12 @@ class GuardEngine(
         for (award in awards) effects += Effect.Record(RecordEvent.StarLit(award))
         if (focus.sound != SoundKind.NONE) effects += Effect.StopSound
         effects += Effect.FocusCompleted(awards.size)
-        return state.copy(focus = null, economy = day)
+        val st = state.copy(focus = null, economy = day)
+        // A completed focus must also clear notification id 1. With keep-alive on (the default) the
+        // session service does not re-post on its own, so without this the shade keeps a countdown that
+        // can only count below zero and whose End button addresses a session that no longer exists.
+        effects += Effect.Live(liveAfterFocus(st))
+        return st
     }
 
     // ── dispatch ───────────────────────────────────────────────────────────────────────────────
@@ -955,6 +960,9 @@ class GuardEngine(
         if (prompt.kind != SurfaceKind.FOCUS_GUARD) return state
         val focus = state.focus ?: return state
         var st = closeFocus(state, focus, completed = false, now = now, ctx = ctx, effects = effects)
+        // The surface is about to be replaced by the ordinary question, so the shade has to stop
+        // counting down the session the user just ended; the next prompt is not a timer.
+        effects += Effect.Live(liveAfterFocus(st))
         val kind = resolver.withoutFocus(
             ctx = ctx,
             nowWall = now.wallMs,
@@ -1177,6 +1185,25 @@ class GuardEngine(
         for (award in awards) effects += Effect.Record(RecordEvent.StarLit(award))
         if (focus.sound != SoundKind.NONE) effects += Effect.StopSound
         return state.copy(focus = null, economy = day)
+    }
+
+    /**
+     * What notification id 1 should show once a focus ends.
+     *
+     * Ending a focus does not end a grant that happens to be running underneath it, and the shade can
+     * only describe one of them. Re-deriving the live state from the state the reducer just produced
+     * keeps the notification honest in both cases: a running grant gets its own countdown back,
+     * anything else falls back to the keep-alive, which is the post that replaces a stale timer.
+     *
+     * @param st the state after the focus was cleared.
+     */
+    private fun liveAfterFocus(st: EngineState): LiveState {
+        val g = st.grant
+        return if (st.phase == Phase.GRANTED && g != null) {
+            LiveState.GrantRunning(st.foregroundPackage ?: g.firstPackage, g.kind, g.grantedMs, Accounting.grantRemainingMs(g))
+        } else {
+            LiveState.None
+        }
     }
 
     // ── self-test ─────────────────────────────────────────────────────────────────────────────

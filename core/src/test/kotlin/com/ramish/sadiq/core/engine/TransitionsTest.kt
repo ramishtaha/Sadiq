@@ -412,7 +412,7 @@ class TransitionsTest {
         assertNull(rig.state.focus)
         assertEquals(SurfaceKind.PAUSE, rig.state.prompt?.kind)
         assertEquals(
-            listOf("Record(FocusClosed:false)", "Record(StarLit)", "Update(PAUSE)"),
+            listOf("Record(FocusClosed:false)", "Record(StarLit)", "Live(None)", "Update(PAUSE)"),
             rig.tags(),
         )
         assertEquals(false, economy.lastFocusCompleted)
@@ -713,7 +713,7 @@ class TransitionsTest {
         assertNull(rig.state.focus)
         assertEquals(true, economy.lastFocusCompleted)
         assertEquals(
-            listOf("Record(FocusClosed:true)", "Record(StarLit)", "FocusCompleted(1)"),
+            listOf("Record(FocusClosed:true)", "Record(StarLit)", "FocusCompleted(1)", "Live(None)"),
             rig.tags(),
         )
     }
