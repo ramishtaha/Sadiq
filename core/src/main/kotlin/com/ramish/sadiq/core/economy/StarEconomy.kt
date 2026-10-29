@@ -105,7 +105,7 @@ interface StarEconomy {
         entry: LedgerEntry?,
         nowWall: Long,
         logicalDay: Int
-    ): Pair<EconomyDay, StarAward?>
+    ): Pair<EconomyDay, List<StarAward>>
 
     /**
      * Today's free-scroll balance: [EconomyDay.litTotal] minutes minus what has been used, capped at

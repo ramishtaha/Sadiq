@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings and Health check copy (SPEC-UX S5/S6, name addendum §2.6/§3).
+
+  Every claim here is one the app can stand behind: a row whose evidence is missing says
+  "Not checked", and the privacy statement is the plan\'s sentence verbatim.
+
+  The name addendum forbids the "lock" family of words outside the HyperOS step in
+  strings_onboarding_oem.xml, so the Recents row is titled "Keep Sadiq in Recents" and its hint
+  describes the gesture instead of repeating the OS\'s own menu label.
+-->
+<resources>
+
+    <string name="settings_title">Settings</string>
+
+    <!-- S5 · Appearance -->
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_theme_label">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_sepia">Sepia</string>
+    <string name="settings_reduce_motion">Reduce motion</string>
+    <string name="settings_reduce_motion_hint">Animations snap instead of easing.</string>
+
+    <!-- S5 · Notifications -->
+    <string name="settings_section_notifications">Notifications</string>
+    <string name="settings_hide_quiet">Hide the quiet notification</string>
+    <string name="settings_hide_quiet_hint">Sadiq stays on; the shade line goes away.</string>
+    <string name="settings_live_updates">Live updates</string>
+    <string name="settings_live_updates_hint">Android 16 and later.</string>
+    <string name="settings_weekly_review">Weekly review</string>
+    <string name="settings_weekly_review_hint">One Sunday note. Never more.</string>
+
+    <!-- S5 · Reliability -->
+    <string name="settings_section_reliability">Reliability</string>
+    <string name="settings_health">Health check</string>
+    <string name="settings_health_hint">Every permission, and the truth about it.</string>
+    <string name="settings_keep_alive">Keep Sadiq running</string>
+    <string name="settings_keep_alive_hint">A silent line in the shade while timers run.</string>
+
+    <!-- S5 · Protected times (the same edits the Guard tab makes) -->
+    <string name="settings_section_protected_times">Protected times</string>
+    <string name="settings_bedtime">Bedtime</string>
+    <string name="settings_bedtime_value">%1$s → Fajr</string>
+    <string name="settings_morning">Your morning</string>
+    <string name="settings_morning_value">Fajr → %1$s</string>
+    <string name="settings_prayer_times">Prayer times</string>
+
+    <!-- S5 · Privacy: the §3.9 sentence, verbatim. -->
+    <string name="settings_section_privacy">Privacy</string>
+    <string name="settings_privacy_statement">Sadiq has no internet permission. It sees which app is on screen, and nothing leaves this phone.</string>
+    <string name="settings_delete_history">Delete all history</string>
+    <string name="settings_delete_title">Delete all history?</string>
+    <string name="settings_delete_body">Stars, opens, grants, focus and reflections are deleted. Your settings stay.</string>
+    <string name="settings_delete_confirm">Delete all history</string>
+    <string name="settings_delete_cancel">Not now</string>
+    <string name="settings_deleted">History deleted. Your settings stay.</string>
+
+    <!-- S5 · About -->
+    <string name="settings_section_about">About</string>
+    <string name="settings_about_name">Sadiq · صادق</string>
+    <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_about_credit">Inspired by StarPause – Stop Scrolling (iOS)</string>
+    <string name="settings_about_tagline">Be true to your time.</string>
+
+    <!-- Shared row actions. "Fix" changes something that is off; "Set" answers a check Android
+         would not answer, so the two never look like the same claim. -->
+    <string name="settings_fix">Fix</string>
+    <string name="settings_set">Set</string>
+
+    <!-- S6 · Health check -->
+    <string name="health_title">Health check</string>
+    <string name="health_run_test">Try the question</string>
+    <string name="health_no_apps">Guard an app first, then try the question.</string>
+    <string name="health_choose_apps">Choose apps</string>
+    <string name="health_testing">Sadiq will ask when you open %1$s.</string>
+    <string name="health_cancel_test">Cancel</string>
+    <string name="health_test_row_title">The question</string>
+    <string name="health_result_works">Works · Sadiq asked in %1$s</string>
+    <string name="health_result_overlay">Works through the backup layer · allow pop-ups so Sadiq can ask faster</string>
+    <string name="health_result_missing">Sadiq couldn\'t ask. Check Accessibility below.</string>
+    <string name="health_latency_ms">%1$d ms</string>
+    <string name="health_note">Not checked means Android gave no answer. Sadiq never guesses.</string>
+    <string name="health_section_permissions">Permissions</string>
+
+    <string name="health_row_accessibility">Accessibility</string>
+    <string name="health_row_popups">Pop-ups in the background</string>
+    <string name="health_row_battery">Battery</string>
+    <string name="health_row_autostart">Autostart</string>
+    <string name="health_row_recents">Keep Sadiq in Recents</string>
+    <string name="health_row_notifications">Notifications</string>
+    <string name="health_row_usage">Usage access</string>
+    <string name="health_row_live_updates">Live updates</string>
+
+    <string name="health_accessibility_on">On. Sadiq can see which app is open.</string>
+    <string name="health_accessibility_not_running">On but not running. Turn it off and on again.</string>
+    <string name="health_accessibility_off">Off. Sadiq can\'t ask until you turn it on.</string>
+
+    <string name="health_popups_on">On. Sadiq can ask the moment you open an app.</string>
+    <string name="health_popups_off">Off. The question uses the backup layer instead.</string>
+    <string name="health_popups_unknown">Not checked. HyperOS didn\'t answer.</string>
+
+    <string name="health_battery_on">No restrictions. The system leaves Sadiq alone.</string>
+    <string name="health_battery_off">Restrictions on. The system may freeze Sadiq.</string>
+    <string name="health_battery_unknown">Not checked. Set No restrictions for Sadiq.</string>
+    <string name="health_battery_confirmed">No restrictions, and you set it in the battery saver screen.</string>
+
+    <string name="health_autostart_on">On. Sadiq comes back after a restart.</string>
+    <string name="health_autostart_off">Off. Sadiq may not come back after a restart.</string>
+    <string name="health_autostart_unknown">Not checked. HyperOS didn\'t answer.</string>
+    <string name="health_autostart_confirmed">You set this. HyperOS doesn\'t report it.</string>
+
+    <string name="health_recents_confirmed">You set this. Recents keeps the Sadiq card.</string>
+    <string name="health_recents_unknown">Not checked. Press and hold the Sadiq card in Recents, then tap the icon.</string>
+
+    <string name="health_notifications_on">On. The timer can sit in the shade.</string>
+    <string name="health_notifications_off">Off. The timer can\'t sit in the shade.</string>
+
+    <string name="health_usage_on">On. The Week screen has real numbers.</string>
+    <string name="health_usage_off">Off. The Week screen shows approximate numbers.</string>
+
+    <string name="health_live_updates_on">On.</string>
+    <string name="health_live_updates_off">Off.</string>
+    <string name="health_live_updates_unknown">Not checked. Android didn\'t answer.</string>
+    <string name="health_live_updates_unavailable">Needs Android 16. This phone doesn\'t offer it.</string>
+
+    <!-- Sky card, priority 80 (name addendum §2.6, exact copy). -->
+    <string name="settings_popup_card_title">Allow pop-ups</string>
+    <string name="settings_popup_card_body">The question is using the backup layer. Allow pop-ups so it appears faster.</string>
+    <string name="settings_popup_card_action">Open settings</string>
+</resources>

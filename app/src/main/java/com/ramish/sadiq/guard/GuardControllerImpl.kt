@@ -9,6 +9,8 @@ import com.ramish.sadiq.contract.UsageHistorySource
 import com.ramish.sadiq.core.engine.Effect
 import com.ramish.sadiq.core.engine.EngineState
 import com.ramish.sadiq.core.engine.GuardInput
+import com.ramish.sadiq.core.engine.Guardedness
+import com.ramish.sadiq.core.engine.AppSurface
 import com.ramish.sadiq.core.engine.GuardReducer
 import com.ramish.sadiq.core.model.ActiveWindow
 import com.ramish.sadiq.core.model.GuardConfig
@@ -119,8 +121,11 @@ class GuardControllerImpl @Inject constructor(
      * there.
      */
     fun start() {
+        Log.i(TAG, "start() called, alreadyStarted=" + started.get())
         if (!started.compareAndSet(false, true)) return
-        scope.launch { consume() }
+        // UNDISPATCHED: begin consuming before start() returns. If the loop never starts, the engine
+        // silently ignores every input and the app looks dead while reporting healthy.
+        scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { consume() }
         scope.launch { writeSnapshots() }
     }
 
@@ -144,11 +149,28 @@ class GuardControllerImpl @Inject constructor(
     // ── the consumer ────────────────────────────────────────────────────────────────────────────
 
     private suspend fun consume() {
-        startUp()
+        // Nothing in here may kill the loop. A failure while restoring, reconciling or processing one
+        // input must degrade to "that input was not handled", never to "Sadiq silently stops asking"
+        // for the rest of the process lifetime.
+        Log.i(TAG, "consume started")
+        try {
+            startUp()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Throwable) {
+            Log.e(TAG, "startUp failed; starting from initial state", failure)
+            runCatching { mutableState.value = reducer.initial(clock.now(), bootstrapContext(clock.now(), settings.config.value)) }
+        }
         for (envelope in inputs) {
-            when (envelope) {
-                is Envelope.Input -> process(envelope.input)
-                Envelope.Reset -> resetToInitial()
+            try {
+                when (envelope) {
+                    is Envelope.Input -> process(envelope.input)
+                    Envelope.Reset -> resetToInitial()
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Throwable) {
+                Log.e(TAG, "input failed: " + envelope, failure)
             }
         }
     }

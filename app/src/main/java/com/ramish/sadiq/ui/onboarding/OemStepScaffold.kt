@@ -1,0 +1,149 @@
+package com.ramish.sadiq.ui.onboarding
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.ramish.sadiq.R
+import com.ramish.sadiq.ui.components.ComponentPreview
+import com.ramish.sadiq.ui.components.PrimaryPillButton
+import com.ramish.sadiq.ui.components.TextPillButton
+import com.ramish.sadiq.ui.theme.Motion
+import com.ramish.sadiq.ui.theme.Spacing
+import com.ramish.sadiq.ui.theme.ThemeFlavor
+
+/**
+ * The canonical layout of an onboarding step: icon, headline, body, action, optional why.
+ *
+ * Used by all 14 steps, so the typography, spacing and animation are consistent.
+ * The only motion is the `Why?` expanding: it happens only once per wizard, it is quick, and the
+ * text is not scrollable, so an animation here does not distract from the main intent.
+ *
+ * @param icon a 64 dp icon for this step.
+ * @param headline the main text.
+ * @param body the secondary text.
+ * @param actionLabel the primary action's label.
+ * @param onAction what the primary action does.
+ * @param whyLabel the optional "Why?" action's label.
+ * @param whyText the optional text to show when "Why?" is tapped.
+ * @param modifier for padding the whole step.
+ * @param actionEnabled whether the primary action is enabled.
+ * @param actionIcon an optional icon for the primary action.
+ * @param actionIconContentDescription content description for the action icon.
+ * @param content extra composables, shown below the body text.
+ */
+@Composable
+fun OemStepScaffold(
+    icon: ImageVector,
+    headline: String,
+    body: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+    modifier: Modifier = Modifier,
+    actionEnabled: Boolean = true,
+    actionIcon: ImageVector? = null,
+    actionIconContentDescription: String? = null,
+    whyLabel: String? = null,
+    whyText: String? = null,
+    content: @Composable (() -> Unit)? = null,
+) {
+    var showWhy by remember { mutableStateOf(false) }
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Spacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(Spacing.xxl))
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(Spacing.xxl))
+        Text(
+            text = headline,
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(Modifier.height(Spacing.md))
+        Text(
+            text = body,
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (content != null) {
+            Spacer(Modifier.height(Spacing.xl))
+            content()
+        }
+        if (whyLabel != null && whyText != null) {
+            Spacer(Modifier.height(Spacing.xl))
+            TextPillButton(text = whyLabel, onClick = { showWhy = !showWhy })
+            AnimatedVisibility(
+                visible = showWhy,
+                enter = expandVertically(animationSpec = tween(Motion.NORMAL)),
+                exit = shrinkVertically(animationSpec = tween(Motion.NORMAL)),
+            ) {
+                Text(
+                    text = whyText,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Spacing.xl)
+                )
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        PrimaryPillButton(
+            text = actionLabel,
+            onClick = onAction,
+            enabled = actionEnabled,
+            icon = actionIcon,
+            iconContentDescription = actionIconContentDescription,
+        )
+        Spacer(Modifier.height(Spacing.xxl))
+    }
+}
+
+@Preview(name = "OemStepScaffold · Light", widthDp = 360, showBackground = true)
+@Composable
+private fun OemStepScaffoldLightPreview() {
+    ComponentPreview(ThemeFlavor.LIGHT) {
+        OemStepScaffold(
+            icon = Icons.Filled.Shield,
+            headline = "Let Sadiq see which app is open.",
+            body = "That's all it sees. No internet. Nothing leaves this phone.",
+            actionLabel = "Turn on Sadiq",
+            onAction = {},
+            whyLabel = "Why?",
+            whyText = "Android has no other way to know when you open a feed. Sadiq can't close apps. It can ask, and take you home."
+        )
+    }
+}

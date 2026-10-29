@@ -1,6 +1,7 @@
 package com.ramish.sadiq
 
 import android.app.Application
+import android.util.Log
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -25,6 +26,7 @@ class SadiqApp : Application() {
         // A set has no defined order, and two initializers can touch the same component (the
         // accessibility service, the session service). Sorting by class name keeps the order stable
         // between launches, so a startup bug reproduces instead of depending on the hash of the day.
+        Log.i("SP/App", "initializers=" + initializers.size + " -> " + initializers.map { it.javaClass.simpleName })
         initializers
             .sortedBy { it.javaClass.name }
             .forEach { it.start() }

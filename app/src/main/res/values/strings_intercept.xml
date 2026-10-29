@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common -->
+    <string name="intercept_leave_star_content_description">Lights a star</string>
+    <string name="intercept_app_chip_content_description">%s is running</string>
+    <string name="intercept_for_how_long">For how long?</string>
+    <string name="intercept_n_minutes">%d minutes</string>
+    <string name="intercept_n_min">%d min</string>
+    <string name="intercept_one_minute_n_left">One minute · %d left</string>
+    <string name="intercept_hold_for_n_minutes">Hold for %d minutes</string>
+    <string name="intercept_stay_button">Yes, I need it</string>
+    <string name="intercept_resume_button">Resume</string>
+
+    <!-- PAUSE -->
+    <string name="intercept_prompt_headline">Honestly, do you need this right now?</string>
+    <string name="intercept_pause_primary_button">No, take me home</string>
+    <string name="intercept_pause_secondary_button">Yes, I need it</string>
+    <string name="intercept_pause_free_scroll_button">Use free scroll · %1$d min</string>
+    <string name="intercept_pause_caption_mode_time">%1$s · %2$d min before rest</string>
+
+    <!-- Leave confirmation -->
+    <string name="intercept_leave_confirm_bloom_headline">Back to your day.</string>
+
+    <!-- REFLECT -->
+    <string name="intercept_reflect_subtitle">You\'ve come back %1$d times in 20 minutes. What\'s really going on?</string>
+    <string name="intercept_reflect_chip_bored">Bored</string>
+    <string name="intercept_reflect_chip_tired">Tired</string>
+    <string name="intercept_reflect_chip_avoiding">Avoiding something</string>
+    <string name="intercept_reflect_chip_lonely">Lonely</string>
+    <string name="intercept_reflect_chip_anxious">Anxious</string>
+    <string name="intercept_reflect_chip_habit">Just habit</string>
+    <string name="intercept_reflect_action_start_focus_5">Start 5-min focus</string>
+
+    <!-- PRAYER -->
+    <string name="intercept_prayer_headline_name">It\'s %s.</string>
+    <string name="intercept_prayer_headline_jumuah">It\'s Jumu\'ah.</string>
+    <string name="intercept_prayer_subtitle">Pray first? %s will still be here.</string>
+    <string name="intercept_prayer_primary_button">I\'ll pray first</string>
+    <string name="intercept_prayer_caption">At prayer time, the choice is always yours.</string>
+
+    <!-- MORNING -->
+    <string name="intercept_morning_headline">Your morning is for you.</string>
+    <string name="intercept_morning_subtitle">Pick one thing. 5 minutes.</string>
+    <string name="intercept_morning_primary_button">Start 5 minutes</string>
+    <string name="intercept_morning_secondary_button">No, take me home</string>
+    <string name="intercept_morning_caption">Your morning, until %s</string>
+
+    <!-- COOLDOWN -->
+    <string name="intercept_cooldown_headline">Resting for %d more minutes.</string>
+    <string name="intercept_cooldown_primary_button">Go home</string>
+    <string name="intercept_cooldown_free_scroll_button">Use free scroll · %d min</string>
+    <string name="intercept_cooldown_caption">Rest ends at %s</string>
+
+    <!-- SLEEP_GATE (Bedtime) -->
+    <string name="intercept_sleep_gate_headline_time">It\'s %s. Time to sleep.</string>
+    <string name="intercept_sleep_gate_subtitle_fajr_time">Fajr is at %s. That\'s %s from now.</string>
+    <string name="intercept_sleep_gate_primary_button">Go to sleep</string>
+    <string name="intercept_sleep_gate_secondary_button">Wind down with rain · 20 min</string>
+    <string name="intercept_sleep_gate_tertiary_button">Hold for one minute · %d left</string>
+    <string name="intercept_sleep_gate_caption">Sleep gate until Fajr</string>
+
+    <!-- FOCUS_GUARD -->
+    <string name="intercept_focus_guard_headline">You\'re focusing.</string>
+    <string name="intercept_focus_guard_subtitle">%d minutes left. You\'ve got this.</string>
+    <string name="intercept_focus_guard_primary_button">Back to focus</string>
+    <string name="intercept_focus_guard_secondary_button">End focus</string>
+    <string name="intercept_focus_guard_tertiary_button">Hold for one minute · %d left</string>
+    <string name="intercept_focus_guard_caption">Focus ends at %s</string>
+
+    <!-- TIME_UP -->
+    <string name="intercept_time_up_headline">That\'s the %1$d minutes you chose.</string>
+    <string name="intercept_time_up_subtitle">You can go now, or choose a little more.</string>
+    <string name="intercept_time_up_primary_button">Take me home</string>
+    <string name="intercept_time_up_secondary_button">A little more</string>
+    <string name="intercept_time_up_free_scroll_button">Use free scroll · %d min</string>
+    <string name="intercept_time_up_caption_rest">Feeds rest for %d minutes after this.</string>
+    <string name="intercept_time_up_caption_before_rest">%d min left before rest</string>
+
+    <string name="intercept_time_up_free_headline">Free scroll\'s done.</string>
+    <string name="intercept_time_up_free_subtitle">That was yours. Enjoy the evening.</string>
+    <string name="intercept_time_up_free_primary_button">Go home</string>
+
+    <string name="intercept_time_up_quick_headline">That was your minute.</string>
+    <string name="intercept_time_up_quick_primary_button">Go home</string>
+
+    <!-- TEST -->
+    <string name="intercept_test_headline">This is Sadiq.</string>
+    <string name="intercept_test_subtitle">This is what you\'ll see when you open %s.</string>
+    <string name="intercept_test_primary_button">Leave · light your first star</string>
+    <string name="intercept_test_caption">Only a test</string>
+
+    <!-- Reflection Responses -->
+    <string name="intercept_reflect_response_bored">Boredom is fine. Two minutes of nothing?</string>
+    <string name="intercept_reflect_response_tired">Sleep is the better scroll.</string>
+    <string name="intercept_reflect_response_tired_wind_down">Sleep is the better scroll. Wind down.</string>
+    <string name="intercept_reflect_response_avoiding">Pick the smallest piece. 5 minutes.</string>
+    <string name="intercept_reflect_response_lonely">Message someone you like instead?</string>
+    <string name="intercept_reflect_response_anxious">Breathe out longer than you breathe in. Four times.</string>
+    <string name="intercept_reflect_response_habit">Your thumb did that. You can put it down.</string>
+
+    <!-- Suggestion Lines -->
+    <string name="intercept_suggestion_prayer_now">%s is in. Wudu first?</string>
+    <string name="intercept_suggestion_prayer_soon">%1$s in %2$d minutes.</string>
+    <string name="intercept_suggestion_sleep_fajr">Fajr is at %s.</string>
+    <string name="intercept_suggestion_morning_one_thing">Pick one thing. 5 minutes.</string>
+    <string name="intercept_suggestion_gym_soon">Gym in a bit. Shoes on?</string>
+    <string name="intercept_suggestion_gym_now">Gym hour.</string>
+    <string name="intercept_suggestion_generic_water">Stand up and drink some water.</string>
+    <string name="intercept_suggestion_generic_window">Look out of a window for a minute.</string>
+    <string name="intercept_suggestion_generic_breathe">Three slow breaths, then decide.</string>
+    <string name="intercept_suggestion_generic_one_thing">Pick one thing. 5 minutes.</string>
+    <string name="intercept_suggestion_generic_text_back">Text someone back instead.</string>
+    <string name="intercept_suggestion_generic_stretch">Stretch your neck and shoulders.</string>
+
+    <!-- Duration strings (from strings_app.xml, added here for completeness) -->
+    <string name="duration_hours_minutes">%1$d h %2$d min</string>
+    <string name="duration_hours">%d h</string>
+    <string name="duration_minutes">%d min</string>
+    <string name="duration_less_than_minute">Less than a minute</string>
+
+    <!-- Mode strings (from strings_app.xml, added here for completeness) -->
+    <string name="mode_gentle">Gentle</string>
+    <string name="mode_steady">Balanced</string>
+    <string name="mode_firm">Hardcore</string>
+
+    <!-- Prayer names (from strings_app.xml, added here for completeness) -->
+    <string name="prayer_fajr">Fajr</string>
+    <string name="prayer_dhuhr">Dhuhr</string>
+    <string name="prayer_asr">Asr</string>
+    <string name="prayer_maghrib">Maghrib</string>
+    <string name="prayer_isha">Isha</string>
+
+    <string name="intercept_leave_button">No, take me home</string>
+    <string name="intercept_leave_button_description">Closes this app and takes you home. Lights a star.</string>
+    <string name="intercept_time_up_leave_button">Take me home</string>
+    <string name="intercept_time_up_leave_button_description">Takes you home. Lights a star.</string>
+    <string name="intercept_time_up_caption">The feeds rest for %1$d minutes after this.</string>
+    <string name="intercept_pause_caption">%1$s · %2$d min left today</string>
+    <string name="intercept_prayer_headline">It’s %1$s.</string>
+    <string name="intercept_bedtime_headline">It’s %1$s. Time to sleep.</string>
+    <string name="intercept_bedtime_subtitle">Fajr is at %1$s. That’s %2$s from now.</string>
+    <string name="intercept_bedtime_primary_button">Go to sleep</string>
+    <string name="intercept_bedtime_caption">The feeds rest until Fajr.</string>
+    <string name="intercept_bedtime_tertiary_button">One minute · %1$d left</string>
+    <string name="intercept_cooldown_tertiary_button">One minute · %1$d left</string>
+    <string name="intercept_cooldown_tertiary_button_free">Free scroll · %1$d min</string>
+    <string name="intercept_cooldown_primary_button_description">Takes you home.</string>
+    <string name="intercept_morning_secondary_button_description">Closes this app and takes you home.</string>
+    <string name="intercept_prayer_primary_button_description">Closes this app so you can pray.</string>
+    <string name="intercept_test_primary_button_description">Takes you home.</string>
+    <string name="intercept_reflect_bored_response">Bored.</string>
+    <string name="intercept_reflect_tired_response">Tired.</string>
+    <string name="intercept_reflect_avoiding_response">Avoiding something.</string>
+    <string name="intercept_reflect_lonely_response">Lonely.</string>
+    <string name="intercept_reflect_anxious_response">Anxious.</string>
+    <string name="intercept_reflect_habit_response">Just habit.</string>
+    <string name="intercept_suggestion_water">Drink some water.</string>
+    <string name="intercept_suggestion_window">Look out of the window for a minute.</string>
+    <string name="intercept_suggestion_breathe">Take five slow breaths.</string>
+    <string name="intercept_suggestion_one_thing">Pick one thing. Five minutes.</string>
+    <string name="intercept_suggestion_text_back">Reply to the message you have been avoiding.</string>
+    <string name="intercept_suggestion_stretch">Stand up and stretch.</string>
+</resources>

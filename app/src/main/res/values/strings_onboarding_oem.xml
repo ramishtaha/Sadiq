@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_popups_headline">So Sadiq can step in instantly.</string>
+    <string name="onboarding_popups_body">HyperOS needs a special permission to show a full-screen pop-up. Without it, Sadiq uses a backup layer that is slower.</string>
+    <string name="onboarding_popups_action">Open pop-up settings</string>
+
+    <string name="onboarding_batterysaver_headline">Sadiq needs "No restrictions" in Battery saver.</string>
+    <string name="onboarding_batterysaver_body">HyperOS automatically puts apps to sleep. Sadiq needs to stay awake to guard your feeds.</string>
+    <string name="onboarding_batterysaver_action">Open Battery saver</string>
+    <string name="onboarding_batterysaver_confirm_action">I set "No restrictions"</string>
+
+    <string name="onboarding_autostart_headline">So Sadiq comes back after a restart.</string>
+    <string name="onboarding_autostart_body">HyperOS disables autostart by default for many apps. Sadiq needs it to keep guarding your feeds.</string>
+    <string name="onboarding_autostart_action">Open Autostart</string>
+    <string name="onboarding_autostart_confirm_action">I turned on Autostart</string>
+
+    <string name="onboarding_recents_headline">Lock Sadiq in Recents.</string>
+    <string name="onboarding_recents_body">HyperOS clears apps from memory to save battery. Lock Sadiq so it is always there.</string>
+    <string name="onboarding_recents_action">I locked it</string>
+
+    <string name="onboarding_os_o5_os3_label">Installed apps</string>
+    <string name="onboarding_os_o5_os2_path">Settings → Additional settings → Accessibility → Downloaded apps → Sadiq → turn on "Use Sadiq" → Allow.</string>
+    <string name="onboarding_os_o5_os3_path">Settings → Additional settings → Accessibility → Installed apps → Sadiq → turn on "Use Sadiq" → Allow.</string>
+    <string name="onboarding_os_o7_path">Other permissions → "Display pop-up windows while running in the background" → Always allow.</string>
+    <string name="onboarding_os_o7_alt_path">Other permissions → "Open new windows while running in the background" → Always allow.</string>
+    <string name="onboarding_os_o9_path">App info → Battery saver → No restrictions.</string>
+    <string name="onboarding_os_o10_path">Find Sadiq → turn on Autostart.</string>
+    <string name="onboarding_os_o10_alt_path">App info → Autostart.</string>
+    <string name="onboarding_os_o11_path">Swipe up from the bottom and hold to open Recents → press and hold the Sadiq card → tap the lock icon.</string>
+</resources>

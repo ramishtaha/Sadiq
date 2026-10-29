@@ -16,7 +16,7 @@
     <!-- Keep-alive. The second line ("Guarding 5 apps") is a count, so LiveText builds it. -->
     <string name="notify_keep_alive_title">Sadiq is on</string>
 
-    <!-- Answers on a live notification. "Save the rest" and "Let it go" are the addendum's wording. -->
+    <!-- Answers on a live notification. "Save the rest" and "Let it go" are the addendum\'s wording. -->
     <string name="notify_action_done_early">I\'m done</string>
     <string name="notify_action_save_rest">Save the rest</string>
     <string name="notify_action_let_go">Let it go</string>

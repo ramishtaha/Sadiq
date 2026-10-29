@@ -69,7 +69,7 @@ class InvariantsTest {
         private val economy = FakeStarEconomy(
             kindleAward = Fixtures.star(),
             focusAwards = listOf(Fixtures.star()),
-            protectedAward = Fixtures.star(),
+            protectedAwards = listOf(Fixtures.star()),
             freeScrollMs = 15 * MIN,
             quickNeeds = 3,
         )

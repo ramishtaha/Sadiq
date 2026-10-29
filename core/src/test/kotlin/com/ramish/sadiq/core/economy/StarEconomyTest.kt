@@ -278,7 +278,7 @@ class StarEconomyTest {
     fun e7_aQuietNightPaysThreeStars() {
         val span: ProtectedSpan = ProtectedSpan(WindowKind.SLEEP_GATE, at(22, 30), at(22, 30) + 6 * HOUR + 51 * MINUTE)
 
-        val (after, award) = economy.onProtectedWindowEnded(
+        val (after, awards) = economy.onProtectedWindowEnded(
             day = freshDay(),
             span = span,
             entry = ledger(WindowKind.SLEEP_GATE, grants = 0, quickNeeds = 1),
@@ -286,7 +286,7 @@ class StarEconomyTest {
             logicalDay = DAY,
         )
 
-        assertEquals(StarKind.QUIET_NIGHT, assertNotNull(award).kind)
+        assertEquals(StarKind.QUIET_NIGHT, awards.first().kind)
         assertEquals(3, after.litTotal, "a quiet night is worth three stars")
         assertEquals(0, after.litLeave, "quiet-night stars are not leave stars")
         assertEquals(0, after.litFocus)
@@ -308,11 +308,11 @@ class StarEconomyTest {
         val span: ProtectedSpan = ProtectedSpan(WindowKind.SLEEP_GATE, at(22, 30), at(22, 30) + 6 * HOUR)
         val start: EconomyDay = freshDay()
 
-        val (after, award) = economy.onProtectedWindowEnded(
+        val (after, awards) = economy.onProtectedWindowEnded(
             start, span, ledger(WindowKind.SLEEP_GATE, quickNeeds = 2), at(5, 21), DAY,
         )
 
-        assertNull(award)
+        assertTrue(awards.isEmpty())
         assertEquals(start, after, "a night that was not quiet records nothing")
     }
 
@@ -320,37 +320,37 @@ class StarEconomyTest {
     fun e7_aGrantOrReconciledUsageDisqualifiesTheNight() {
         val span: ProtectedSpan = ProtectedSpan(WindowKind.SLEEP_GATE, at(22, 30), at(22, 30) + 6 * HOUR)
 
-        val withGrant: Pair<EconomyDay, StarAward?> = economy.onProtectedWindowEnded(
+        val withGrant: Pair<EconomyDay, List<StarAward>> = economy.onProtectedWindowEnded(
             freshDay(), span, ledger(WindowKind.SLEEP_GATE, grants = 1), at(5, 21), DAY,
         )
-        val withUsage: Pair<EconomyDay, StarAward?> = economy.onProtectedWindowEnded(
+        val withUsage: Pair<EconomyDay, List<StarAward>> = economy.onProtectedWindowEnded(
             freshDay(), span, ledger(WindowKind.SLEEP_GATE, reconciled = true), at(5, 21), DAY,
         )
 
-        assertNull(withGrant.second, "a stay in the gate is not a quiet night")
-        assertNull(withUsage.second, "reconciled guarded usage is not a quiet night")
+        assertTrue(withGrant.second.isEmpty(), "a stay in the gate is not a quiet night")
+        assertTrue(withUsage.second.isEmpty(), "reconciled guarded usage is not a quiet night")
     }
 
     @Test
     fun e7_aNightWithoutALedgerEntryIsQuietByDefinition() {
         val span: ProtectedSpan = ProtectedSpan(WindowKind.SLEEP_GATE, at(22, 30), at(22, 30) + 6 * HOUR)
-        val (after, award) = economy.onProtectedWindowEnded(freshDay(), span, null, at(5, 21), DAY)
+        val (after, awards) = economy.onProtectedWindowEnded(freshDay(), span, null, at(5, 21), DAY)
 
-        assertEquals(StarKind.QUIET_NIGHT, assertNotNull(award).kind)
+        assertEquals(StarKind.QUIET_NIGHT, awards.first().kind)
         assertEquals(3, after.litTotal)
     }
 
     @Test
     fun e7_onlyProtectedWindowsPay() {
         for (kind in listOf(WindowKind.PRAYER, WindowKind.NONE)) {
-            val (after, award) = economy.onProtectedWindowEnded(
+            val (after, awards) = economy.onProtectedWindowEnded(
                 freshDay(),
                 ProtectedSpan(kind, at(13, 0), at(13, 20)),
                 ledger(kind),
                 at(13, 20),
                 DAY,
             )
-            assertNull(award, "$kind pays no protected-window star")
+            assertTrue(awards.isEmpty(), "$kind pays no protected-window star")
             assertEquals(0, after.litTotal)
         }
     }
@@ -359,16 +359,16 @@ class StarEconomyTest {
     fun e8_aQuietMorningPaysTwoStars() {
         val span: ProtectedSpan = ProtectedSpan(WindowKind.MORNING, at(6, 0), at(10, 0))
 
-        val (after, award) = economy.onProtectedWindowEnded(
+        val (after, awards) = economy.onProtectedWindowEnded(
             freshDay(), span, ledger(WindowKind.MORNING), at(10, 0), DAY,
         )
-        assertEquals(StarKind.PROTECTED_MORNING, assertNotNull(award).kind)
+        assertEquals(StarKind.PROTECTED_MORNING, awards.first().kind)
         assertEquals(2, after.litTotal, "a quiet morning is worth two stars")
 
         val (_, notQuiet) = economy.onProtectedWindowEnded(
             freshDay(), span, ledger(WindowKind.MORNING, grants = 2), at(10, 0), DAY,
         )
-        assertNull(notQuiet, "a morning with a stay is not protected")
+        assertTrue(notQuiet.isEmpty(), "a morning with a stay is not protected")
     }
 
     // ── E9 WELCOME ─────────────────────────────────────────────────────────────────────────────────
@@ -446,7 +446,7 @@ class StarEconomyTest {
                 day, focus(plannedMs = 25 * MINUTE, elapsedMs = 25 * MINUTE), true, at(20, 0), DAY,
             ).second.isEmpty(),
         )
-        assertNull(economy.onProtectedWindowEnded(day, span, null, at(5, 21), DAY).second)
+        assertTrue(economy.onProtectedWindowEnded(day, span, null, at(5, 21), DAY).second.isEmpty())
     }
 
     @Test

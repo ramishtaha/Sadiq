@@ -37,6 +37,9 @@ interface HomeAction {
 
     /** Bring Sadiq to the front on [route]. @param route one of `Routes`. */
     fun openSadiq(route: String)
+
+    /** Open an OS settings page. */
+    fun openSettings(target: SettingsTarget)
 }
 
 /** Lowers other apps' audio while a surface is up, so the question is not competing with a reel. */

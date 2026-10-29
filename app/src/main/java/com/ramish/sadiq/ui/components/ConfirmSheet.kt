@@ -39,9 +39,11 @@ fun ConfirmSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     dismissLabel: String = "Not now",
-    destructive: Boolean = false,
-    sheetState: SheetState = rememberModalBottomSheetState()
+    destructive: Boolean = false
 ) {
+    // Kept inside: `SheetState` is an experimental type, and exposing it in the public signature
+    // would force every caller to opt in to Material 3's experimental API.
+    val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     ModalBottomSheet(
         onDismissRequest = onDismiss,

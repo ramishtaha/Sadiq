@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="guard_title">Guard</string>
+
+    <!-- Guard Screen (S3 Guard) -->
+    <string name="guard_mode_section_header">MODE</string>
+    <string name="guard_mode_gentle">Gentle · 15 min, then 15 min rest</string>
+    <string name="guard_mode_balanced">Balanced · 10 min, then 30 min rest</string>
+    <string name="guard_mode_hardcore">Hardcore · 5 min, then 60 min rest</string>
+    <string name="guard_mode_subtitle">Shared across all your guarded apps</string>
+    <string name="guard_apps_section_header">GUARDED APPS</string>
+    <string name="guard_apps_summary">%d apps</string>
+    <string name="guard_protected_times_section_header">PROTECTED TIMES</string>
+    <string name="guard_sleep_gate_summary">Sleep gate · %1$s → Fajr</string>
+    <string name="guard_morning_window_summary">Your morning · Fajr → %1$s</string>
+    <string name="guard_prayer_times_summary">Prayer times · %1$s</string>
+    <string name="guard_empty_headline">Nothing guarded yet</string>
+    <string name="guard_empty_body">Pick the apps that pull you in.</string>
+    <string name="guard_empty_action">Choose apps</string>
+
+    <!-- Guarded Apps (S3a Guarded apps) -->
+    <string name="app_picker_title">Guarded apps</string>
+    <string name="app_picker_suggested_section_header">SUGGESTED</string>
+    <string name="app_picker_all_apps_section_header">ALL APPS</string>
+    <string name="app_picker_button_guard_apps">Guard %d apps</string>
+    <string name="app_picker_search_label">Search</string>
+
+    <!-- Prayer Times (S3b Prayer times) -->
+    <string name="prayer_settings_title">Prayer times</string>
+    <string name="prayer_settings_use_my_location_once">Use my location once</string>
+    <string name="prayer_settings_copy">During these minutes Sadiq stays out of the way. It only asks.</string>
+    <string name="prayer_settings_location_fail">Couldn\'t get a location. %s times are still in use.</string>
+    <string name="prayer_settings_place_unknown">Unknown</string>
+    <string name="prayer_settings_method_section_header">METHOD</string>
+    <string name="prayer_settings_madhab_section_header">MADHAB</string>
+    <string name="prayer_settings_prayer_window_section_header">PRAYER WINDOW</string>
+    <string name="prayer_settings_jumuah_window_title">Jumu\'ah window</string>
+    <string name="prayer_settings_jumuah_window_subtitle">60 minutes for Friday Dhuhr</string>
+    <string name="prayer_settings_today_prayer_times_section_header">TODAY\'S PRAYER TIMES</string>
+
+    <!-- Protected Times (S3c Protected times) -->
+    <string name="protected_times_title">Protected times</string>
+    <string name="protected_times_sleep_gate_section_header">SLEEP GATE</string>
+    <string name="protected_times_sleep_gate_title">Sleep Gate</string>
+    <string name="protected_times_sleep_gate_note">Never earlier than 30 min after Isha · today %s</string>
+    <string name="protected_times_sleep_gate_preview">Tonight: %1$s → %2$s (Fajr).</string>
+    <string name="protected_times_morning_window_section_header">MORNING WINDOW</string>
+    <string name="protected_times_morning_window_title">Morning Window</string>
+    <string name="protected_times_start_time">Start time</string>
+    <string name="protected_times_end_time">End time</string>
+    <string name="protected_times_select_sleep_gate_start_time">Select Sleep Gate Start Time</string>
+    <string name="protected_times_select_morning_window_end_time">Select Morning Window End Time</string>
+    <string name="protected_times_on">On</string>
+    <string name="protected_times_off">Off</string>
+
+    <!-- Common (from strings_app for verification) -->
+    <string name="confirm_ok">OK</string>
+    <string name="confirm_cancel">Cancel</string>
+
+</resources>

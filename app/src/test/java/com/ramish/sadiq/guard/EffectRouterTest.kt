@@ -202,6 +202,8 @@ class EffectRouterTest {
         val opened = mutableListOf<String>()
         val calls: Int get() = goHomeCalls + opened.size
 
+        override fun openSettings(target: com.ramish.sadiq.contract.SettingsTarget) = Unit
+
         override fun goHome(): Boolean {
             goHomeCalls += 1
             return true

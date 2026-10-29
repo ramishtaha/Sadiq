@@ -135,14 +135,14 @@ class WorkedExamplesTest {
         )
         val firstInput: Long = at(22, 30) + 6 * HOUR + 55 * MINUTE
 
-        val oneQuickMinute: Pair<EconomyDay, StarAward?> = economy.onProtectedWindowEnded(
+        val oneQuickMinute: Pair<EconomyDay, List<StarAward>> = economy.onProtectedWindowEnded(
             day = freshDay(),
             span = span,
             entry = ledger(WindowKind.SLEEP_GATE, grants = 0, quickNeeds = 1),
             nowWall = firstInput,
             logicalDay = DAY,
         )
-        assertEquals(StarKind.QUIET_NIGHT, assertNotNull(oneQuickMinute.second).kind)
+        assertEquals(StarKind.QUIET_NIGHT, oneQuickMinute.second.first().kind)
         assertEquals(3, oneQuickMinute.first.litTotal, "a quiet night pays three")
 
         val twoQuickMinutes: Pair<EconomyDay, List<StarAward>> = economy.onProtectedWindowEndedAwards(

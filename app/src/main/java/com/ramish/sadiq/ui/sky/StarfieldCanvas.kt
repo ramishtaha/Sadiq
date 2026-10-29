@@ -36,9 +36,11 @@ import com.ramish.sadiq.core.sky.SkyPoint
 import com.ramish.sadiq.core.sky.SkyProjection
 import com.ramish.sadiq.core.sky.SkyStar
 import com.ramish.sadiq.core.sky.VogelStarLayout
+import com.ramish.sadiq.core.time.LogicalDays
 import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.sin
+import java.time.ZoneId
 
 /**
  * The night sky of §4.5: a dark disc of stars that only ever grows.
@@ -431,7 +433,7 @@ private fun previewStars(count: Int): List<SkyStar> = List(count) { index ->
             else -> StarKind.LEAVE
         },
         litWall = 1_760_000_000_000L + index * 3_600_000L,
-        logicalDay = 21_600 + index / 6,
+        logicalDay = LogicalDays.of(1_760_000_000_000L + index * 3_600_000L, ZoneId.systemDefault().id),
         sourcePackage = null,
     )
 }

@@ -53,7 +53,7 @@ class NightScenarioTest {
         val economy = FakeStarEconomy(
             leaveDecision = LeaveDecision.Kindle(EconomyRules.KINDLE_CONFIRM_MS),
             kindleAward = Fixtures.star(kind = StarKind.LEAVE),
-            protectedAward = Fixtures.star(kind = StarKind.QUIET_NIGHT),
+            protectedAwards = listOf(Fixtures.star(kind = StarKind.QUIET_NIGHT)),
             freeScrollMs = 0L,
             quickNeeds = 3,
         )

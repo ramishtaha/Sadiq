@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sadiq_app_name">Sadiq</string>
+    <string name="settings">Settings</string>
+    <string name="sky_your_sky">YOUR SKY</string>
+    <string name="sky_lit_tonight">+%d tonight</string>
+    <string name="sky_status_asleep">Sadiq is asleep</string>
+    <string name="sky_status_focusing">Focusing · ends %s</string>
+    <string name="sky_status_bedtime">Bedtime until Fajr · %s</string>
+    <string name="sky_status_prayer">%s time</string>
+    <string name="sky_status_rest">Feeds are resting until %s</string>
+    <string name="sky_status_morning">Your morning, until %s</string>
+    <string name="sky_status_default">Guarding %1$d apps · %2$s</string>
+    <string name="sky_mode_gentle">Gentle</string>
+    <string name="sky_mode_steady">Steady</string>
+    <string name="sky_mode_firm">Firm</string>
+    <string name="sky_today_section_header">TODAY</string>
+    <string name="sky_free_minutes_earned">Free minutes, from today\'s stars</string>
+    <string name="sky_button_start_focus">Start focus</string>
+    <string name="sky_empty_headline">Your sky is waiting.</string>
+    <string name="sky_empty_subtitle">Each star is a moment you did what you meant. Say no to a feed once, and the first one appears here.</string>
+    <string name="sky_tooltip_leave">You said no to %s.</string>
+    <string name="sky_tooltip_kept_word">You did what you said: %d minutes.</string>
+    <string name="sky_tooltip_done_early">You finished before your time was up.</string>
+    <string name="sky_tooltip_focus">%d minutes of focus.</string>
+    <string name="sky_tooltip_focus_finish">You finished the focus you started.</string>
+    <string name="sky_tooltip_quiet_night">A quiet night.</string>
+    <string name="sky_tooltip_quiet_morning">A quiet morning.</string>
+    <string name="sky_tooltip_welcome">Your first star.</string>
+    <string name="card_asleep_title">Sadiq is asleep</string>
+    <string name="card_asleep_body">It can\'t ask you anything until you wake it.</string>
+    <string name="card_asleep_action">Wake Sadiq</string>
+</resources>

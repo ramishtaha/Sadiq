@@ -232,10 +232,7 @@ class DefaultStarEconomy : StarEconomy {
         entry: LedgerEntry?,
         nowWall: Long,
         logicalDay: Int,
-    ): Pair<EconomyDay, StarAward?> {
-        val (updated, awards) = onProtectedWindowEndedAwards(day, span, entry, nowWall, logicalDay)
-        return updated to awards.firstOrNull()
-    }
+    ): Pair<EconomyDay, List<StarAward>> = onProtectedWindowEndedAwards(day, span, entry, nowWall, logicalDay)
 
     /**
      * E7/E8 with one award per star, for callers that persist a star per award (CONTRACT-GAP 1/3).

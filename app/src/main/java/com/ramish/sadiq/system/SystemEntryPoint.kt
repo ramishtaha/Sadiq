@@ -37,6 +37,9 @@ interface SystemEntryPoint {
 
     /** The accessibility binding state, which the service updates and the snapshot reads. */
     fun accessibilityBinding(): AccessibilityBinding
+
+    /** The guard controller, for components that need to submit inputs. */
+    fun guardController(): com.ramish.sadiq.contract.GuardController
 }
 
 /**

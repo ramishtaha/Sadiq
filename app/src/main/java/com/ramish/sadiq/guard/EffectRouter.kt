@@ -54,8 +54,12 @@ class EffectRouter @Inject constructor(
      * focus. None of that may sit in front of the next input.
      */
     fun start() {
+        android.util.Log.i("SP/Effects", "router start() called")
         if (!started.compareAndSet(false, true)) return
-        scope.launch {
+        // UNDISPATCHED: register the collector before this call returns. With the default dispatch,
+        // the engine can emit its first ShowSurface before this coroutine ever runs, and a
+        // replay-less SharedFlow drops it — the question would never appear on the very first open.
+        scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
             controller.effects.collect { effect ->
                 try {
                     dispatch(effect)

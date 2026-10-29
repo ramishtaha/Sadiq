@@ -6,6 +6,7 @@
 
     <string name="tab_sky">Sky</string>
     <string name="tab_focus">Focus</string>
+
     <string name="tab_guard">Guards</string>
     <string name="tab_week">Week</string>
 
@@ -15,4 +16,11 @@
 
     <string name="widget_label">Sadiq sky</string>
     <string name="widget_description">Your Sadiq sky. No numbers to check.</string>
+
+    <!-- Mode names -->
+
+
+    <!-- Prayer names -->
+
+
 </resources>

@@ -178,7 +178,46 @@ class TransitionsTest {
         assertEquals("SCREEN_OFF", rig.economy.lastLeave?.name)
     }
 
-    // ── T09 ───────────────────────────────────────────────────────────────────────────────────
+
+    // ── F01 ───────────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun F01_screenOnInIdleWithForegroundGuardedRepromptsAndKindleNeverLights() {
+        val rig = Rig()
+        rig.openGuarded() // This will put it into PROMPTING
+        rig.step(GuardInput.ScreenOff, TestTime.after(rig.now, 1)) // This will put it into IDLE and clear prompt
+
+        // Now, screen on while the same app is in foreground
+        rig.step(GuardInput.ScreenOn, TestTime.after(rig.now, 2))
+
+        assertEquals(Phase.PROMPTING, rig.state.phase)
+        assertNotNull(rig.state.prompt)
+        assertEquals(0, rig.state.kindles.size) // Kindle should not be lit
+        assertEquals(listOf("Duck", "Show(PAUSE)", "Record(Open:DISMISSED)"), rig.tags()) // Reprompting effects
+    }
+
+    @Test
+    fun F01_screenOnInHeldWithForegroundGuardedResumesConsumption() {
+        val now = Fixtures.EVENING
+        val held = Fixtures.state(
+            now = now,
+            phase = Phase.HELD,
+            grant = Fixtures.grant(
+                grantedMs = 5 * MIN,
+                consumedMs = MIN,
+                lastAccountedElapsed = now.elapsedMs,
+                heldSinceElapsed = now.elapsedMs - MIN,
+            ),
+            budget = Fixtures.budget(remainingMs = 9 * MIN),
+        )
+        val rig = Rig(initial = held)
+        rig.step(GuardInput.ScreenOn, TestTime.after(now, 1)) // ScreenOn while held
+
+        assertEquals(Phase.GRANTED, rig.state.phase)
+        assertNull(rig.state.grant?.heldSinceElapsed)
+        assertEquals(listOf("Live(GrantRunning)"), rig.tags())
+    }
+
 
     @Test
     fun T09_stayGrantsTheChosenMinutesAndReleasesTheSurface() {
@@ -686,7 +725,7 @@ class TransitionsTest {
         val now = Fixtures.EVENING
         val span = Fixtures.span()
         val star = Fixtures.star()
-        val economy = FakeStarEconomy(protectedAward = star)
+        val economy = FakeStarEconomy(protectedAwards = listOf(star))
         val ctx = Fixtures.context(now = now, endedProtected = listOf(span))
         val state = Fixtures.state(now = now, ledger = listOf(Fixtures.ledgerEntry()))
         val rig = Rig(economy = economy, initial = state, ctx = ctx)

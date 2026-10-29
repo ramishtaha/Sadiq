@@ -35,7 +35,7 @@ class FakeStarEconomy(
     var leaveEarnsStar: Boolean = true,
     var kindleAward: StarAward? = null,
     var focusAwards: List<StarAward> = emptyList(),
-    var protectedAward: StarAward? = null,
+    var protectedAwards: List<StarAward> = emptyList(),
     var freeScrollMs: Long = 0L,
     var quickNeeds: Int = EngineRules.QUICK_NEEDS_PER_DAY,
     var projectedStars: Int = 0
@@ -138,11 +138,11 @@ class FakeStarEconomy(
         entry: LedgerEntry?,
         nowWall: Long,
         logicalDay: Int
-    ): Pair<EconomyDay, StarAward?> {
+    ): Pair<EconomyDay, List<StarAward>> {
         calls += "onProtectedWindowEnded"
         lastSpan = span
         lastLedgerEntry = entry
-        return day to protectedAward
+        return day to protectedAwards
     }
 
     override fun freeScrollAvailableMs(day: EconomyDay): Long {

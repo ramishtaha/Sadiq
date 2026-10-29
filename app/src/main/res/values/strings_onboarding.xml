@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_welcome_headline">Sadiq</string>
+    <string name="onboarding_welcome_headline_arabic">صادق</string>
+    <string name="onboarding_welcome_tagline">Be true to your time.</string>
+    <string name="onboarding_welcome_body">When you open a feed you chose to guard, Sadiq asks one question.</string>
+    <string name="onboarding_welcome_action">Set it up · 3 minutes</string>
+
+    <string name="onboarding_apps_headline">Which apps pull you in?</string>
+    <string name="onboarding_apps_body">Sadiq asks one question when you open any of these.</string>
+    <string name="onboarding_apps_action">Guard these %1$d apps</string>
+    <string name="onboarding_apps_action_zero">Pick apps to guard</string>
+    <string name="onboarding_apps_suggested_header">Suggested</string>
+    <string name="onboarding_apps_all_apps_header">All apps</string>
+
+    <string name="onboarding_mode_headline">What kind of guard?</string>
+    <string name="onboarding_mode_body">This sets the default time. Change it anytime.</string>
+    <string name="onboarding_mode_gentle_title">Gentle</string>
+    <string name="onboarding_mode_gentle_subtitle">15 min, then 15 min rest</string>
+    <string name="onboarding_mode_steady_title">Steady</string>
+    <string name="onboarding_mode_steady_subtitle">10 min, then 30 min rest</string>
+    <string name="onboarding_mode_firm_title">Firm</string>
+    <string name="onboarding_mode_firm_subtitle">5 min, then 60 min rest</string>
+    <string name="onboarding_mode_action">Use %1$s</string>
+
+    <string name="onboarding_times_headline">Your protected times.</string>
+    <string name="onboarding_times_body">Set for Thane. Change anytime.</string>
+    <string name="onboarding_times_bedtime_title">Bedtime</string>
+    <string name="onboarding_times_morning_title">Your morning</string>
+    <string name="onboarding_times_action">Looks right</string>
+    <string name="onboarding_times_bedtime_format">%1$s → %2$s</string>
+    <string name="onboarding_times_morning_format">%1$s → %2$s</string>
+    <string name="onboarding_times_bedtime_picker_title">Bedtime starts at</string>
+    <string name="onboarding_times_morning_picker_title">Morning ends at</string>
+
+    <string name="onboarding_accessibility_headline">Let Sadiq see which app is open.</string>
+    <string name="onboarding_accessibility_body">That\'s all it sees. No internet. Nothing leaves this phone.</string>
+    <string name="onboarding_accessibility_action">Turn on Sadiq</string>
+    <string name="onboarding_accessibility_why_action">Why?</string>
+    <string name="onboarding_accessibility_why_text">Android has no other way to know when you open a feed. Sadiq can\'t close apps. It can ask, and take you home.</string>
+
+    <string name="onboarding_restricted_headline">"Restricted setting" found.</string>
+    <string name="onboarding_restricted_body">Android says: "For your security, this setting is currently unavailable."</string>
+    <string name="onboarding_restricted_action">Open App info</string>
+    <string name="onboarding_restricted_why_action">Why?</string>
+    <string name="onboarding_restricted_why_text">Sadiq was installed from a side-loaded APK. This is Android\'s new security control. Follow the steps, then come back.</string>
+
+    <string name="onboarding_notifications_headline">Allow notifications?</string>
+    <string name="onboarding_notifications_body">So your timer can sit quietly in the status bar.</string>
+    <string name="onboarding_notifications_action">Allow notifications</string>
+
+    <string name="onboarding_battery_headline">So HyperOS doesn\'t put Sadiq to sleep.</string>
+    <string name="onboarding_battery_body">Android puts apps to sleep to save battery. Sadiq needs to stay awake.</string>
+    <string name="onboarding_battery_action">Allow</string>
+
+    <string name="onboarding_usage_headline">Usage access.</string>
+    <string name="onboarding_usage_body">So Sadiq can learn from your choices. It never reports anything back.</string>
+    <string name="onboarding_usage_action">Turn on usage access</string>
+    <string name="onboarding_usage_skip_action">Skip for now</string>
+    <string name="onboarding_usage_why_action">Why?</string>
+    <string name="onboarding_usage_why_text">Usage access lets Sadiq see how much time you spend in apps, so it can show you weekly trends and suggest better guard times. Sadiq has no internet, so nothing leaves your phone.</string>
+
+    <string name="onboarding_try_headline">Try the question.</string>
+    <string name="onboarding_try_body">Sadiq will arm a self-test. Open %1$s. Sadiq will step in.</string>
+    <string name="onboarding_try_action">Open %1$s</string>
+    <string name="onboarding_try_success">It works. Here\'s your first star.</string>
+    <string name="onboarding_try_any_app">an app</string>
+    <string name="onboarding_try_missed">No test screen from %1$s. Open it again, or check the app is installed.</string>
+</resources>

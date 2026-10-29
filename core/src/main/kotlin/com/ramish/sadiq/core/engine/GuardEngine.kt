@@ -111,7 +111,7 @@ class GuardEngine(
         var st = state
         for (span in ctx.endedProtected) {
             val entry = st.ledger.firstOrNull { it.kind == span.kind && it.startWall == span.startWall }
-            val (day, award) = economy.onProtectedWindowEnded(
+            val (day, awards) = economy.onProtectedWindowEnded(
                 day = st.economy,
                 span = span,
                 entry = entry,
@@ -119,7 +119,7 @@ class GuardEngine(
                 logicalDay = ctx.logicalDay,
             )
             st = st.copy(economy = day)
-            if (award != null) effects += Effect.Record(RecordEvent.StarLit(award))
+            for (award in awards) effects += Effect.Record(RecordEvent.StarLit(award))
             st = Accounting.dropLedger(st, span.kind, span.startWall)
         }
         return st
@@ -261,7 +261,23 @@ class GuardEngine(
             is GuardInput.ForegroundChanged -> foreground(st, input, now, ctx, effects)
             is GuardInput.Chose -> chose(st, input.choice, now, ctx, effects)
             GuardInput.ScreenOff -> screenOff(st, now, ctx, effects)
-            GuardInput.ScreenOn -> st.copy(screenOn = true)
+            GuardInput.ScreenOn -> {
+                val on = st.copy(screenOn = true)
+                val pkg = on.foregroundPackage
+                val guardedByConfig = pkg != null &&
+                    Guardedness.isGuarded(pkg, null, AppSurface.APP, ctx.config)
+                when {
+                    // F-01: a lock/unlock during a Stay must not silently freeze the grant. The grace
+                    // exists to bridge exactly this moment, so the screen coming back on resumes it.
+                    on.phase == Phase.HELD && on.grant != null ->
+                        resumeSavedGrant(on, on.grant, pkg ?: on.grant.firstPackage, now, effects)
+
+                    pkg != null && on.phase in setOf(Phase.IDLE, Phase.HELD) && guardedByConfig ->
+                        foreground(on, GuardInput.ForegroundChanged(pkg), now, ctx, effects)
+
+                    else -> on
+                }
+            }
             GuardInput.Tick -> st
         }
     }

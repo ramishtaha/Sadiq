@@ -5,6 +5,7 @@ import com.ramish.sadiq.contract.GuardController
 import com.ramish.sadiq.contract.HomeAction
 import com.ramish.sadiq.contract.MediaDucker
 import com.ramish.sadiq.contract.SurfacePresenter
+import com.ramish.sadiq.core.apps.AppCatalog
 import com.ramish.sadiq.core.economy.DefaultStarEconomy
 import com.ramish.sadiq.core.economy.StarEconomy
 import com.ramish.sadiq.core.engine.GuardEngine
@@ -162,6 +163,11 @@ abstract class GuardModule {
         @Singleton
         @GuardWork
         fun guardWork(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+        /** App catalog. */
+        @Provides
+        @Singleton
+        fun appCatalog(): AppCatalog = AppCatalog
     }
 }
 
@@ -182,6 +188,7 @@ class GuardStartup @Inject constructor(
 ) : AppInitializer {
 
     override fun start() {
+        android.util.Log.i("SP/App", "GuardStartup.start")
         effects.start()
         controller.start()
     }

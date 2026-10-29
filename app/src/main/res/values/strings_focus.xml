@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="focus_title">Focus</string>
+    <string name="focus_setup_headline">One thing, for a while.</string>
+    <string name="focus_setup_subtitle">Pick a length. You can stop whenever you need to.</string>
+    <string name="focus_length_header">How long?</string>
+    <string name="focus_minutes">%1$d min</string>
+    <string name="focus_projection">That would be +%1$d stars.</string>
+    <string name="focus_sound_header">Sound</string>
+    <string name="focus_start">Start focus</string>
+    <string name="focus_running_subtitle">+%1$d stars so far</string>
+    <string name="focus_sound_play">Play sound</string>
+    <string name="focus_sound_stop">Stop sound</string>
+    <string name="focus_end">End focus</string>
+    <string name="focus_done_headline">%1$d minutes, done.</string>
+    <string name="focus_done_subtitle">You said you’d focus, and you did. +%1$d stars in your sky.</string>
+    <string name="focus_back_to_sky">Back to your sky</string>
+    <string name="focus_end_confirm_title">End this session?</string>
+    <string name="focus_end_confirm_body">You keep what you have earned so far.</string>
+    <string name="focus_end_confirm">End it</string>
+    <string name="focus_end_confirm_keep">Keep going</string>
+    <string name="focus_sound_none">None</string>
+    <string name="focus_sound_rain">Rain</string>
+    <string name="focus_sound_brown">Brown noise</string>
+    <string name="focus_sound_night_pad">Night pad</string>
+</resources>

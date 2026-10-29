@@ -11,6 +11,8 @@ import android.content.Context
 import android.content.Intent
 import com.ramish.sadiq.MainActivity
 import com.ramish.sadiq.contract.HomeAction
+import com.ramish.sadiq.contract.SettingsTarget
+import com.ramish.sadiq.contract.OemSettingsLauncher
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,6 +30,7 @@ import javax.inject.Singleton
 class HomeActionImpl @Inject constructor(
     private val handle: GuardServiceHandle,
     @ApplicationContext private val context: Context,
+    private val oemSettingsLauncher: OemSettingsLauncher,
 ) : HomeAction {
 
     override fun goHome(): Boolean {
@@ -64,6 +67,10 @@ class HomeActionImpl @Inject constructor(
         } catch (_: SecurityException) {
             // Same background-start restriction as above; the engine state is untouched either way.
         }
+    }
+
+    override fun openSettings(target: SettingsTarget) {
+        oemSettingsLauncher.open(target)
     }
 
     companion object {
