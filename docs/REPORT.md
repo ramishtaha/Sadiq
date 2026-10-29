@@ -32,7 +32,8 @@ Screenshots: `/root/starpause-brain/shots/final-*.png`.
 - **652 unit tests, 0 failures** (core engine + economy + schedule, data codecs, FGS policy, forbidden-word scan).
 - **3 Opus 5.5 audits**: AUDIT-1 (1 P0 + 18 P1), AUDIT-2 (4 P0 + 9 P1), AUDIT-3 (7 release blockers, no crash and no
   privacy leak; blockers B-1, B-2, B-3, B-6 fixed in this build).
-- APK: `/root/starpause-brain/delivery/sadiq-debug.apk` (73 MB, debug), signed with
+- APK (final, commit `36f1184`): `/root/starpause-brain/delivery/sadiq-debug.apk` (73 MB, debug) —
+  also served at https://learn.ramishtaha.tech/sadiq-debug.apk. Signed with
   `CN=Sadiq Debug, O=Ramish`, SHA-256 `DA:AA:E7:AB:…:A2:32:47:34`.
 
 ## What is in the build
@@ -43,7 +44,8 @@ sessions (5–90 min, procedural rain/brown/night-pad sound), the star sky, onbo
 a health check, and a zero-network guarantee.
 
 **M2 (landed tonight, newer and less tested)** — the Week tab (weekly review), "Think it over" (strict mode with a
-10-minute delay on loosening), and a Ramadan card.
+10-minute delay on loosening; now reachable inside the Guards tab), and a Ramadan card. The Guard and Settings screens
+now render their contributed sections, so those features are actually reachable.
 
 ## What is NOT done — read this before relying on it
 
