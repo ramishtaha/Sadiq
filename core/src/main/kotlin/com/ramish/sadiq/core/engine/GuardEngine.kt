@@ -178,7 +178,27 @@ class GuardEngine(
         // session service does not re-post on its own, so without this the shade keeps a countdown that
         // can only count below zero and whose End button addresses a session that no longer exists.
         effects += Effect.Live(liveAfterFocus(st))
-        return st
+        // If the session ran out under an open FOCUS_GUARD, the surface he is looking at says "You're
+        // focusing" and offers "End focus", which lands on endFocusFromPrompt and returns early now
+        // that `focus` is null — a button that does nothing. Re-resolve the surface without the
+        // session, the same seam T16 uses, so the question on screen is one the engine can still
+        // answer. promptOf restarts `shownWall` for the same reason T16 does: this is a new question.
+        val prompt = st.prompt
+        return if (st.phase == Phase.PROMPTING && prompt != null && prompt.kind == SurfaceKind.FOCUS_GUARD) {
+            val kind = resolver.withoutFocus(
+                ctx = ctx,
+                nowWall = now.wallMs,
+                restActive = restActive(st),
+                recentOpensWall = st.recentOpensWall,
+                lastReflectWall = st.lastReflectWall,
+            )
+            val next = promptOf(kind, prompt.packageName, prompt.domain, now)
+            val updated = st.copy(prompt = next, foregroundGuarded = true)
+            effects += Effect.UpdateSurface(ui(updated, next, ctx, now, reason = null))
+            updated
+        } else {
+            st
+        }
     }
 
     // ── dispatch ───────────────────────────────────────────────────────────────────────────────
@@ -1164,7 +1184,10 @@ class GuardEngine(
         effects: MutableList<Effect>,
     ): EngineState {
         val st = closeFocus(state, focus, completed = false, now = now, ctx = ctx, effects = effects)
-        effects += Effect.Live(LiveState.None)
+        // Ending a focus does not end a grant taken on FOCUS_GUARD and still running underneath it, so
+        // the shade must keep that grant's countdown instead of going quiet (the completion path uses
+        // the same helper for the same reason).
+        effects += Effect.Live(liveAfterFocus(st))
         return st
     }
 

@@ -176,6 +176,11 @@ class GuardAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         Log.i(TAG, "GuardAccessibilityService destroyed")
+        // Report here as well as in onUnbind: the system can destroy the service without unbinding
+        // it, and until A4-14 this path left the binding claiming a service that had gone, which
+        // Health then showed as "On". setConnected is idempotent, so the unbind-then-destroy pair
+        // that a disable produces wakes the provider once.
+        accessibilityBinding.setConnected(false)
         guardServiceHandle.detach()
         unregisterScreenStateReceiver()
         foregroundGate.reset()

@@ -305,8 +305,9 @@ class InvariantsTest {
                 // T19 is transparent: our own package never shows, dismisses, holds, ducks or goes home.
                 // Stars, a completed focus and a stopping sound can fall due on any input; they are
                 // housekeeping (T29/T30/T34), not a reaction to the foreground change. A completed focus
-                // also resets notification id 1, and that Live belongs to the closed session for the same
-                // reason — it is only forgiven here when this transition actually closed one.
+                // also resets notification id 1 and rewrites a FOCUS_GUARD that was still on screen, and
+                // both of those belong to the closed session for the same reason — they are only
+                // forgiven here when this transition actually closed one.
                 val closedFocus = transition.effects.any { effect ->
                     effect is Effect.Record && effect.event is RecordEvent.FocusClosed
                 }
@@ -315,15 +316,22 @@ class InvariantsTest {
                     val tag = effect.tag()
                     !tag.startsWith("Record(") &&
                         !tag.startsWith("FocusCompleted(") &&
-                        !(closedFocus && effect is Effect.Live) &&
+                        !(closedFocus && (effect is Effect.Live || effect is Effect.UpdateSurface)) &&
                         tag !in due
                 }
                 if (reacting.isNotEmpty()) {
                     fail("our own package produced effects: ${reacting.map { it.tag() }}")
                 }
-                if (transition.state.phase != before.phase || transition.state.prompt != before.prompt) {
-                    fail("our own package changed the surface")
-                }
+                val surfaceChanged = transition.state.phase != before.phase ||
+                    transition.state.prompt != before.prompt
+                // A closing session rewrites the FOCUS_GUARD it ran out under in place — same phase,
+                // new prompt — and that is the closed session's housekeeping, not a reaction to our
+                // own package. Any phase change, or a prompt change with no session closing, is T19
+                // broken.
+                val rewrittenByClosedFocus = closedFocus &&
+                    before.phase == Phase.PROMPTING &&
+                    transition.state.phase == Phase.PROMPTING
+                if (surfaceChanged && !rewrittenByClosedFocus) fail("our own package changed the surface")
             }
 
             if (transition.state.phase != Phase.PROMPTING && surfaceOnScreen) {

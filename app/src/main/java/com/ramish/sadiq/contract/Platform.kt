@@ -107,7 +107,9 @@ enum class Tri {
  * One reading of every permission Sadiq depends on.
  *
  * @property accessibilityEnabled whether the service is enabled in Settings.
- * @property accessibilityConnected whether it is actually bound right now.
+ * @property accessibilityConnected whether it is actually bound right now. For the first seconds of a
+ *   process the service cannot have reported yet, so an unreported binding reads as connected only
+ *   inside that startup window and as not connected once it has passed.
  * @property notifications whether `POST_NOTIFICATIONS` is granted (always true below API 33).
  * @property usageAccess whether `PACKAGE_USAGE_STATS` is granted.
  * @property batteryUnrestricted whether the app is exempt from battery optimisation.

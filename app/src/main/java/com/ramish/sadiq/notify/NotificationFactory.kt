@@ -147,16 +147,21 @@ class NotificationFactory @Inject constructor(
     }
 
     /**
-     * "Focus complete" · "+5 stars in your sky". Posted only when the screen is off; otherwise the
-     * Focus screen says it and no notification is needed.
+     * "Focus complete" · "+5 stars in your sky", or null when the session lit nothing.
+     *
+     * The null is the point: a capped session awards no star, and there is no completion line that is
+     * true without one, so the caller must not post rather than post "+0 stars" (§2.2). The
+     * screen-off rule that decides *whether* to post at all lives in [LiveNotifierImpl].
      *
      * @param stars how many stars the session lit.
      */
-    fun focusComplete(stars: Int): Notification =
-        attentionBuilder()
+    fun focusComplete(stars: Int): Notification? {
+        val line = LiveText.starsLine(stars) ?: return null
+        return attentionBuilder()
             .setContentTitle(context.getString(R.string.notify_focus_complete_title))
-            .setContentText(LiveText.starsLine(stars))
+            .setContentText(line)
             .build()
+    }
 
     /** "Sadiq is asleep" · what it cannot do until the user wakes it. At most one per 24 h. */
     fun asleep(): Notification =

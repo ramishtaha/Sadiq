@@ -82,13 +82,20 @@ object LiveText {
     fun savedTitle(remainingMs: Long): String = "${clock(remainingMs)} saved for later"
 
     /**
-     * "+5 stars in your sky" / "+1 star in your sky". The caller only posts this when at least one
-     * star lit, so zero is not a legal input and is rendered as the plural for safety.
+     * "+5 stars in your sky" / "+1 star in your sky", or null when no star lit.
      *
-     * @param stars how many stars the focus session lit.
+     * Zero is not a legal input: the focus cap and the daily cap can award nothing, and §2.2 rejects
+     * putting a star count in front of the user that he did not earn — "+0 stars" is worse than
+     * silence. Null lets the caller drop the line (and the post) instead of inventing new copy for a
+     * session that lit nothing.
+     *
+     * @param stars how many stars the focus session lit; at least one is required.
      */
-    fun starsLine(stars: Int): String =
-        if (stars == 1) "+1 star in your sky" else "+$stars stars in your sky"
+    fun starsLine(stars: Int): String? = when {
+        stars < 1 -> null
+        stars == 1 -> "+1 star in your sky"
+        else -> "+$stars stars in your sky"
+    }
 
     /**
      * How full the promoted chip's single progress segment is, 0..100.

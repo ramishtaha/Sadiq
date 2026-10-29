@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.os.Process
 import android.os.SystemClock
@@ -18,6 +20,7 @@ import com.ramish.sadiq.contract.PermissionStatusProvider
 import com.ramish.sadiq.contract.Tri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,10 +39,11 @@ import kotlinx.coroutines.flow.asStateFlow
  * - WP-13 may delegate `GuardServiceHandle.connected` to [connected] so both names agree;
  * - [PermissionStatusProviderImpl] reads it, and [SystemEntryPoint] hands it to non-Hilt components.
  *
- * Until the first report the provider falls back to "enabled implies connected", which is the only
- * honest answer available: Sadiq cannot see the binder from here, and claiming "not running" on a
- * phone that is running would be a worse lie than saying nothing. Once a report arrives, the report
- * wins — that is what makes the §4.8 "Sadiq is on but not running" card possible.
+ * Until the first report, the provider believes this class only inside the process's startup grace
+ * window, and calls it not connected after that: `onServiceConnected` arrives within a second or two
+ * of a cold start, so a report that has not arrived after ten seconds means a service that is not
+ * there — the state HyperOS leaves behind when it kills the process (A4-14). [AccessibilityConnection]
+ * holds that rule; this class only carries the two facts it needs.
  */
 @Singleton
 class AccessibilityBinding @Inject constructor() {
@@ -115,6 +119,20 @@ class PermissionStatusProviderImpl @Inject constructor(
     private val accessibilityBinding: AccessibilityBinding,
 ) : PermissionStatusProvider {
 
+    /**
+     * When this process started, on the elapsed clock, which bounds the startup grace window.
+     *
+     * Declared before the first snapshot below on purpose: property initialisers run in order, so a
+     * snapshot taken in the constructor would otherwise read an uninitialised zero.
+     *
+     * `Process.getStartElapsedRealtime()` answers zero when the platform cannot date the process.
+     * Zero is passed through rather than papered over here — [AccessibilityConnection] reads it as a
+     * process that has just been born, which keeps the window instead of failing closed on a
+     * service that is very likely running.
+     */
+    private val processStartElapsedMs: Long =
+        runCatching { Process.getStartElapsedRealtime() }.getOrDefault(0L)
+
     private val mutableChanges: MutableStateFlow<PermissionSnapshot> = MutableStateFlow(read())
 
     override val changes: StateFlow<PermissionSnapshot> = mutableChanges.asStateFlow()
@@ -122,12 +140,19 @@ class PermissionStatusProviderImpl @Inject constructor(
     /** When [mutableChanges] was last filled, on the elapsed clock so a wall-clock change is irrelevant. */
     private var lastReadElapsedMs: Long = SystemClock.elapsedRealtime()
 
+    /** The main looper, for the one re-read that ends the startup grace window. */
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** Guards the single post below: a read must not schedule a second one. */
+    private val graceClosePosted = AtomicBoolean(false)
+
     init {
         // Two ways the answer can change without the app asking: the service binds or unbinds, and
         // the user toggles the service in Settings while Sadiq is in the background.
         accessibilityBinding.addListener { refresh() }
         context.getSystemService(AccessibilityManager::class.java)
             ?.addAccessibilityStateChangeListener { refresh() }
+        closeGraceWindow()
     }
 
     override fun snapshot(): PermissionSnapshot {
@@ -139,6 +164,27 @@ class PermissionStatusProviderImpl @Inject constructor(
     override fun refresh() {
         lastReadElapsedMs = SystemClock.elapsedRealtime()
         mutableChanges.value = read()
+    }
+
+    /**
+     * Re-reads once when the startup grace window closes.
+     *
+     * [AccessibilityConnection] is a function of the clock, but nothing emits when the clock passes
+     * its boundary. Without this post, a surface that only collects [changes] and never calls
+     * [refresh] — the Sky and the home card both do — would hold the cold-start answer until the
+     * next bind or the next resume, which is the same "Sadiq is fine" that A4-14 is about. The post
+     * is one-shot and only made while the service has still said nothing; the binding's own listener
+     * covers every later change.
+     */
+    private fun closeGraceWindow() {
+        if (accessibilityBinding.reported) return
+        val delay = AccessibilityConnection.graceRemainingMs(
+            processStartElapsedMs = processStartElapsedMs,
+            nowElapsedMs = SystemClock.elapsedRealtime(),
+        )
+        if (delay <= 0L) return
+        if (!graceClosePosted.compareAndSet(false, true)) return
+        mainHandler.postDelayed({ refresh() }, delay)
     }
 
     /** Reads every permission once. Never throws: each platform query has its own honest fallback. */
@@ -186,11 +232,17 @@ class PermissionStatusProviderImpl @Inject constructor(
     /**
      * Whether the bound state is known and true.
      *
-     * Before the service ever reports, "enabled" is the best available answer; see
-     * [AccessibilityBinding] for why that is the honest default rather than `false`.
+     * The service is the only component that can answer, and it answers through
+     * [AccessibilityBinding]. Before it has spoken, the answer is bounded by the age of this process
+     * rather than assumed: [AccessibilityConnection] documents why a few seconds of belief is the
+     * honest default and why that belief has to expire (A4-14).
      */
-    private fun accessibilityConnected(): Boolean =
-        if (accessibilityBinding.reported) accessibilityBinding.connected.value else true
+    private fun accessibilityConnected(): Boolean = AccessibilityConnection.isConnected(
+        reported = accessibilityBinding.reported,
+        connected = accessibilityBinding.connected.value,
+        processStartElapsedMs = processStartElapsedMs,
+        nowElapsedMs = SystemClock.elapsedRealtime(),
+    )
 
     /**
      * `POST_NOTIFICATIONS`, which does not exist before API 33.

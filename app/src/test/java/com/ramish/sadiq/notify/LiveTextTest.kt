@@ -2,6 +2,7 @@ package com.ramish.sadiq.notify
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /**
  * The exact strings §4.6 puts in the shade and in the status-bar chip. The formats are language
@@ -63,6 +64,18 @@ class LiveTextTest {
     @Test
     fun starsLineIsPluralised() {
         assertEquals("+5 stars in your sky", LiveText.starsLine(5))
+        assertEquals("+1 star in your sky", LiveText.starsLine(1))
+    }
+
+    /**
+     * A capped session (the focus cap or the daily cap) lights no star, and §2.2 says Sadiq does not
+     * put a count in front of him that he did not earn. The line has no zero reading at all: the
+     * notifier drops the post instead of printing "+0".
+     */
+    @Test
+    fun starsLineNeverSaysZeroStars() {
+        assertNull(LiveText.starsLine(0))
+        assertNull(LiveText.starsLine(-3))
         assertEquals("+1 star in your sky", LiveText.starsLine(1))
     }
 

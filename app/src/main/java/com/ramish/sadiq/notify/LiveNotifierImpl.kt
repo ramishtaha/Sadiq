@@ -3,6 +3,7 @@ package com.ramish.sadiq.notify
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.content.Context
+import android.os.PowerManager
 import androidx.core.app.NotificationManagerCompat
 import com.ramish.sadiq.contract.LiveNotifier
 import com.ramish.sadiq.contract.NotificationContract
@@ -31,6 +32,15 @@ class LiveNotifierImpl @Inject constructor(
 
     private val manager: NotificationManagerCompat = NotificationManagerCompat.from(context)
 
+    /**
+     * The power manager the completion rule asks, read from the application context this notifier
+     * already holds — the core module must not grow an Android dependency for it.
+     *
+     * Nullable only because `getSystemService` is: a missing manager reads as "screen on", which keeps
+     * the announcement on the Focus screen rather than posting to a phone we cannot see.
+     */
+    private val power: PowerManager? = context.getSystemService(PowerManager::class.java)
+
     /** What currently sits on id 1, so an unchanged state is not posted again. */
     private var lastLive: LiveSignature? = null
 
@@ -43,8 +53,15 @@ class LiveNotifierImpl @Inject constructor(
 
     override fun keepAlive(): Notification = factory.keepAlive(appCount = null)
 
+    /**
+     * §4.6: the completion post exists for the phone in his pocket. With the screen on the Focus
+     * screen has already said it, so nothing is posted — and a session that lit no star (the focus cap
+     * or the daily cap) is not announced either, because the only line it has would read "+0 stars".
+     */
     override fun focusComplete(stars: Int) {
-        post(NotificationContract.ID_ATTENTION, factory.focusComplete(stars))
+        // An unreadable power manager counts as a screen that is on: the Focus screen says it anyway.
+        if (!shouldPostFocusComplete(stars, power?.isInteractive ?: true)) return
+        post(NotificationContract.ID_ATTENTION, factory.focusComplete(stars) ?: return)
     }
 
     override fun asleep() {
@@ -64,6 +81,22 @@ class LiveNotifierImpl @Inject constructor(
         } catch (_: SecurityException) {
             // The permission was revoked between the check and the post. Nothing else changes.
         }
+    }
+
+    /**
+     * §4.6's rule for the completion post, as a truth table so it is pinned without Android.
+     *
+     * The post exists for the phone in his pocket: with the screen on, the Focus screen has already
+     * said "Focus complete" and a shade post would announce the same fact twice. A session that lit
+     * nothing — the focus cap or the daily cap — is not announced either, because the only line it
+     * could carry would read "+0 stars" (§2.2).
+     *
+     * @param stars how many stars the session lit.
+     * @param screenInteractive whether the screen is on right now.
+     */
+    internal companion object {
+        fun shouldPostFocusComplete(stars: Int, screenInteractive: Boolean): Boolean =
+            !screenInteractive && stars >= 1
     }
 
     /** The identity of a live notification, with the countdown rounded to ten seconds. */
