@@ -27,7 +27,7 @@ r "$ADB shell settings put secure enabled_accessibility_services $SVC"
 r "$ADB shell settings put secure accessibility_enabled 1"
 r "$ADB shell appops set $PKG android:system_alert_window allow" || true
 r "$ADB shell cmd deviceidle whitelist +$PKG" || true
-r "$ADB shell appops set $PKG PACKAGE_USAGE_STATS allow" || true
+r "$ADB shell appops set $PKG GET_USAGE_STATS allow" || true
 
 say "launch"
 r "$ADB shell am force-stop $PKG"
@@ -47,6 +47,6 @@ r "$ADB shell pidof $PKG" | sed 's/^/pid: /'
 shot "01-launch"
 
 say "crashes since launch"
-r "$ADB logcat -d -t 400 | grep -E 'FATAL EXCEPTION|AndroidRuntime.*$PKG|ANR in' | tail -20"
+timeout 40 $SSH "$ADB logcat -d -t 400" 2>/dev/null | tr -d '\r' | grep -E "FATAL EXCEPTION|AndroidRuntime.*$PKG|ANR in" | tail -20
 
 say "done — inspect $SHOTDIR"

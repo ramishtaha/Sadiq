@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        Debug-only. The receiver is the handle the plan's manual checks hold the engine by
+        (WP-13): dump the state, add a guarded app, force a mode, travel in time, reset, self-test.
+
+            adb shell am broadcast -a com.ramish.sadiq.DEBUG -e cmd dump
+
+        It lives in the debug source set, so no release APK contains the class or this receiver.
+    -->
+    <application>
+        <receiver
+            android:name=".debug.DebugCommandsReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.ramish.sadiq.DEBUG" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

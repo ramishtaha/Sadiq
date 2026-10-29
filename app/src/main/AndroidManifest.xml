@@ -90,9 +90,11 @@
             android:name=".session.NotificationActionReceiver"
             android:exported="false" />
 
+        <!-- enabled=false until WP-14/WP-16 land their classes: MY_PACKAGE_REPLACED fires right
+             after install and Android would instantiate a class that does not exist yet. -->
         <receiver
             android:name=".system.BootReceiver"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
