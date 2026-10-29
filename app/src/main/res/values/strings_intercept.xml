@@ -139,7 +139,7 @@
     <string name="intercept_time_up_leave_button">Take me home</string>
     <string name="intercept_time_up_leave_button_description">Takes you home.</string>
     <string name="intercept_time_up_caption">The feeds rest for %1$d minutes after this.</string>
-    <string name="intercept_pause_caption">%1$s · %2$d min left today</string>
+    <string name="intercept_pause_caption">%1$s · %2$d min before rest</string>
     <string name="intercept_pause_caption_mode">%1$s</string>
     <string name="intercept_prayer_headline">It’s %1$s.</string>
     <string name="intercept_bedtime_headline">It’s %1$s. Time to sleep.</string>

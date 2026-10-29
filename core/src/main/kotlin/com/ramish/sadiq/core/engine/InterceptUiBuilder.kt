@@ -78,6 +78,11 @@ object InterceptUiBuilder {
                 SurfaceKind.FOCUS_GUARD -> false
                 // The self-test promises the first star; onboarding lights it, not the engine (E9).
                 SurfaceKind.TEST -> true
+                // Leaving a TIME_UP only pays KEPT_WORD, and the economy pays that only for a STAY.
+                // After free scroll, one minute or a prayer Stay, a star on the button would be a
+                // promise the engine cannot keep (AUDIT-3 B-2).
+                SurfaceKind.TIME_UP ->
+                    facts.leaveEarnsStar && (state.grant == null || state.grant.kind == GrantKind.STAY)
                 else -> facts.leaveEarnsStar
             },
             forceDark = kind == SurfaceKind.SLEEP_GATE,

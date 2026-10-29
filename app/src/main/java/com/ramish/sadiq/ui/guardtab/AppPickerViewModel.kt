@@ -44,12 +44,21 @@ class AppPickerViewModel @Inject constructor(
     private val _query = MutableStateFlow("")
     private val _selectedPackages = MutableStateFlow<Set<String>>(emptySet())
 
+    /** Apps the user explicitly un-ticked, so saving can remove them instead of re-adding them. */
+    private val _removed = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Every launchable app's label, held outside the query filter so a save never depends on it. */
+    @Volatile
+    private var installedLabels: Map<String, String> = emptyMap()
+
     val uiState: StateFlow<AppPickerUiState> = combine(
         _query,
         settingsRepository.config.map { it.apps.map { it.packageName }.toSet() },
         _selectedPackages,
         flow {
-            emit(installedAppsSource.launchableApps().filter { it.packageName !in AppCatalog.baseNeverGuard })
+            val apps = installedAppsSource.launchableApps().filter { it.packageName !in AppCatalog.baseNeverGuard }
+            installedLabels = apps.associate { it.packageName to it.label }
+            emit(apps)
         },
     ) { query, configGuardedPackages, selectedPackages, installedApps ->
         val filteredApps = installedApps.filter { it.label.contains(query, ignoreCase = true) }
@@ -100,18 +109,23 @@ class AppPickerViewModel @Inject constructor(
     }
 
     fun onAppToggle(packageName: String, label: String, isSelected: Boolean) {
-        _selectedPackages.value = if (isSelected) {
-            _selectedPackages.value.plus(packageName)
+        if (isSelected) {
+            _selectedPackages.value = _selectedPackages.value.plus(packageName)
+            _removed.value = _removed.value.minus(packageName)
         } else {
-            _selectedPackages.value.minus(packageName)
+            _selectedPackages.value = _selectedPackages.value.minus(packageName)
+            _removed.value = _removed.value.plus(packageName)
         }
     }
 
     fun saveGuardedApps() {
         viewModelScope.launch {
-            val currentApps = uiState.value.suggestedApps.filter { it.isSelected }.map { GuardedApp(it.packageName, it.label) } +
-                    uiState.value.allApps.filter { it.isSelected }.map { GuardedApp(it.packageName, it.label) }
-            settingsRepository.apply(SettingsChange.SetApps(currentApps))
+            // The saved set is the full selection, not the rows the search box happens to show.
+            // Saving the filtered rows used to un-guard every app the user had searched past.
+            val guarded = settingsRepository.config.value.apps.map { it.packageName }.toSet()
+            val wanted = (guarded + _selectedPackages.value) - _removed.value
+            val apps = wanted.map { pkg -> GuardedApp(pkg, installedLabels[pkg] ?: pkg) }
+            settingsRepository.apply(SettingsChange.SetApps(apps))
         }
     }
 }

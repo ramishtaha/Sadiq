@@ -89,7 +89,7 @@ object OnboardingPlan {
         // OEM steps
         if (isXiaomi) {
             // O7: Pop-ups
-            if (perms.backgroundPopups == Tri.NO) {
+            if (perms.backgroundPopups != Tri.YES) {
                 steps.add(StepId.POPUPS)
             }
             // O8: Battery, part 1
