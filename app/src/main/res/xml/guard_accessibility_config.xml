@@ -9,5 +9,5 @@
     android:description="@string/guard_service_description"
     android:isAccessibilityTool="false"
     android:notificationTimeout="50"
-    android:settingsActivity="com.ramish.saduq.MainActivity"
+    android:settingsActivity="com.ramish.sadiq.MainActivity"
     android:summary="@string/guard_service_summary" />

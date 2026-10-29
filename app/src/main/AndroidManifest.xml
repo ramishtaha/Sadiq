@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- The product promise, enforced in the manifest: Saduq cannot reach the network. -->
+    <!-- The product promise, enforced in the manifest: Sadiq cannot reach the network. -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
@@ -32,7 +32,7 @@
     </queries>
 
     <application
-        android:name=".SaduqApp"
+        android:name=".SadiqApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
@@ -40,13 +40,13 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Saduq">
+        android:theme="@style/Theme.Sadiq">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.Saduq">
+            android:theme="@style/Theme.Sadiq">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -61,8 +61,8 @@
             android:exported="false"
             android:launchMode="singleInstance"
             android:noHistory="true"
-            android:taskAffinity="com.ramish.saduq.intercept"
-            android:theme="@style/Theme.Saduq.Intercept" />
+            android:taskAffinity="com.ramish.sadiq.intercept"
+            android:theme="@style/Theme.Sadiq.Intercept" />
 
         <service
             android:name=".guard.service.GuardAccessibilityService"

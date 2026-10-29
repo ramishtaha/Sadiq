@@ -7,14 +7,14 @@ plugins {
 }
 
 android {
-    namespace = "com.ramish.saduq"
+    namespace = "com.ramish.sadiq"
     compileSdk {
         version = release(37)
         buildToolsVersion = "37.0.0"
     }
 
     defaultConfig {
-        applicationId = "com.ramish.saduq"
+        applicationId = "com.ramish.sadiq"
         minSdk = 31
         targetSdk = 36
         versionCode = 1
@@ -26,32 +26,32 @@ android {
     // by a different cert over this package forces an UNINSTALL, which erases the sky and history.
     // The path comes from ~/.gradle/gradle.properties (never committed). If the property is absent we
     // fall back to the machine's generated debug key with a warning, so a fresh checkout still builds.
-    val saduqDebugKeystore = providers.gradleProperty("SADUQ_DEBUG_KEYSTORE").orNull?.takeIf { it.isNotBlank() }
-    val saduqDebugKeystoreFile = saduqDebugKeystore?.let { file(it) }
+    val sadiqDebugKeystore = providers.gradleProperty("SADIQ_DEBUG_KEYSTORE").orNull?.takeIf { it.isNotBlank() }
+    val sadiqDebugKeystoreFile = sadiqDebugKeystore?.let { file(it) }
 
     signingConfigs {
         create("sharedDebug") {
-            if (saduqDebugKeystoreFile != null) {
-                storeFile = saduqDebugKeystoreFile
-                storePassword = providers.gradleProperty("SADUQ_DEBUG_STORE_PASSWORD").orNull ?: "android"
-                keyAlias = "saduq"
-                keyPassword = providers.gradleProperty("SADUQ_DEBUG_KEY_PASSWORD").orNull ?: "android"
+            if (sadiqDebugKeystoreFile != null) {
+                storeFile = sadiqDebugKeystoreFile
+                storePassword = providers.gradleProperty("SADIQ_DEBUG_STORE_PASSWORD").orNull ?: "android"
+                keyAlias = "sadiq"
+                keyPassword = providers.gradleProperty("SADIQ_DEBUG_KEY_PASSWORD").orNull ?: "android"
             }
         }
     }
 
     buildTypes {
         debug {
-            if (saduqDebugKeystoreFile?.isFile == true) {
+            if (sadiqDebugKeystoreFile?.isFile == true) {
                 signingConfig = signingConfigs.getByName("sharedDebug")
             } else {
-                logger.lifecycle("Saduq: SADUQ_DEBUG_KEYSTORE not set — signing with the machine debug key")
+                logger.lifecycle("Sadiq: SADIQ_DEBUG_KEYSTORE not set — signing with the machine debug key")
             }
         }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (saduqDebugKeystoreFile?.isFile == true) {
+            if (sadiqDebugKeystoreFile?.isFile == true) {
                 signingConfig = signingConfigs.getByName("sharedDebug")
             }
         }

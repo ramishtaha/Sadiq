@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Channels (SPEC-UX §4.6). The ids live in Channels.kt and carry no brand; these display names are
+      the only part of Sadiq the shade shows.
+    -->
+    <string name="notify_channel_guard_status">Sadiq is on</string>
+    <string name="notify_channel_guard_status_description">The quiet line that says Sadiq is running.</string>
+
+    <string name="notify_channel_session_live">Time you chose and focus</string>
+    <string name="notify_channel_session_live_description">The countdown while your time or a focus session runs.</string>
+
+    <string name="notify_channel_attention">Things Sadiq needs you to know</string>
+    <string name="notify_channel_attention_description">Rare, and only when something needs you.</string>
+
+    <!-- Keep-alive. The second line ("Guarding 5 apps") is a count, so LiveText builds it. -->
+    <string name="notify_keep_alive_title">Sadiq is on</string>
+
+    <!-- Answers on a live notification. "Save the rest" and "Let it go" are the addendum's wording. -->
+    <string name="notify_action_done_early">I\'m done</string>
+    <string name="notify_action_save_rest">Save the rest</string>
+    <string name="notify_action_let_go">Let it go</string>
+    <string name="notify_action_end_focus">End</string>
+    <string name="notify_action_sound_off">Sound off</string>
+    <string name="notify_action_sound_on">Sound on</string>
+
+    <!-- Attention posts: a finished focus session, and the one asleep line. -->
+    <string name="notify_focus_complete_title">Focus complete</string>
+    <string name="notify_asleep_title">Sadiq is asleep</string>
+    <string name="notify_asleep_text">It can\'t ask you anything until you wake it.</string>
+</resources>

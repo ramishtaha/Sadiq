@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Saduq</string>
-    <string name="app_name_arabic">صدوق</string>
+    <string name="app_name">Sadiq</string>
+    <string name="app_name_arabic">صادق</string>
     <string name="app_tagline">Be true to your time.</string>
 
     <string name="tab_sky">Sky</string>
@@ -10,9 +10,9 @@
     <string name="tab_week">Week</string>
 
     <!-- Shown as the accessibility service description in system settings. Every claim here is true. -->
-    <string name="guard_service_description">Saduq has no internet permission. It sees which app is on screen, and nothing leaves this phone. It uses this to ask one question when you open an app you chose to guard.</string>
+    <string name="guard_service_description">Sadiq has no internet permission. It sees which app is on screen, and nothing leaves this phone. It uses this to ask one question when you open an app you chose to guard.</string>
     <string name="guard_service_summary">Asks one question when you open a guarded app.</string>
 
-    <string name="widget_label">Saduq sky</string>
-    <string name="widget_description">Your Saduq sky. No numbers to check.</string>
+    <string name="widget_label">Sadiq sky</string>
+    <string name="widget_description">Your Sadiq sky. No numbers to check.</string>
 </resources>

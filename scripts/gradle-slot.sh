@@ -3,7 +3,7 @@
 # Usage: scripts/gradle-slot.sh ./gradlew :app:assembleDebug --console=plain
 set -uo pipefail
 SLOTS="${GRADLE_SLOTS:-3}"
-LOCKDIR="${TMPDIR:-/tmp}/saduq-gradle-slots"
+LOCKDIR="${TMPDIR:-/tmp}/sadiq-gradle-slots"
 mkdir -p "$LOCKDIR"
 # Pick a free slot with flock; wait up to 30 min.
 for i in $(seq 1 "$SLOTS"); do
