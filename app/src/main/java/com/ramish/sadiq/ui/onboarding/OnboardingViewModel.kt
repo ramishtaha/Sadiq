@@ -415,10 +415,15 @@ class OnboardingViewModel @Inject constructor(
         if (mutableState.value.done) return
         val state = mutableState.value
         mutableState.update { it.copy(done = true, testing = false) }
-        persist(StepId.APPS, state)
-        persist(StepId.MODE, state)
-        persist(StepId.TIMES, state)
-        settings.updatePrefs { it.copy(onboardingDone = true, onboardingStep = 0) }
+        // The screen leaves as soon as `done` flips, which clears this ViewModel's scope. Without
+        // NonCancellable the last writes are cancelled mid-flight and the wizard restarts at step 1
+        // on the next launch — the user finishes setup and finds it undone.
+        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+            persist(StepId.APPS, state)
+            persist(StepId.MODE, state)
+            persist(StepId.TIMES, state)
+            settings.updatePrefs { it.copy(onboardingDone = true, onboardingStep = 0) }
+        }
     }
 
     // ── choices ───────────────────────────────────────────────────────────────────────────────
