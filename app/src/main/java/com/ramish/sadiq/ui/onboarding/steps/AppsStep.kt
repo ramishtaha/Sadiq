@@ -1,6 +1,5 @@
 package com.ramish.sadiq.ui.onboarding.steps
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,8 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material3.Checkbox
@@ -25,13 +22,18 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ramish.sadiq.R
 import com.ramish.sadiq.ui.components.AppIcon
-import com.ramish.sadiq.ui.components.PrimaryPillButton
 import com.ramish.sadiq.ui.components.SectionHeader
 import com.ramish.sadiq.ui.onboarding.OnboardingViewModel
 import com.ramish.sadiq.ui.onboarding.OemStepScaffold
 import com.ramish.sadiq.ui.theme.Spacing
 
-/** O2: Pick apps. */
+/**
+ * O2: Pick apps.
+ *
+ * The rows are a plain column, not a lazy one: the step is already inside the wizard's scrolling
+ * column, and a lazy list nested in an unbounded scroll has nothing to measure against — it used to
+ * be laid out at zero height, which left the picker invisible.
+ */
 @Composable
 fun AppsStep(vm: OnboardingViewModel) {
     val state by vm.uiState.collectAsStateWithLifecycle()
@@ -51,22 +53,28 @@ fun AppsStep(vm: OnboardingViewModel) {
         onAction = { vm.next() },
         actionEnabled = state.selected.isNotEmpty()
     ) {
-        Column {
+        Column(modifier = Modifier.fillMaxWidth()) {
             if (suggestedApps.isNotEmpty()) {
                 SectionHeader(stringResource(R.string.onboarding_apps_suggested_header))
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(suggestedApps) { app ->
-                        AppItem(app.packageName, app.label, state.selected.contains(app.packageName), vm::toggleApp)
-                    }
+                suggestedApps.forEach { app ->
+                    AppItem(
+                        packageName = app.packageName,
+                        label = app.label,
+                        selected = state.selected.contains(app.packageName),
+                        onToggle = vm::toggleApp
+                    )
                 }
                 Spacer(Modifier.height(Spacing.xl))
             }
             if (allOtherApps.isNotEmpty()) {
                 SectionHeader(stringResource(R.string.onboarding_apps_all_apps_header))
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(allOtherApps) { app ->
-                        AppItem(app.packageName, app.label, state.selected.contains(app.packageName), vm::toggleApp)
-                    }
+                allOtherApps.forEach { app ->
+                    AppItem(
+                        packageName = app.packageName,
+                        label = app.label,
+                        selected = state.selected.contains(app.packageName),
+                        onToggle = vm::toggleApp
+                    )
                 }
             }
         }

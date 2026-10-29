@@ -19,8 +19,9 @@ fun AutostartStep(vm: OnboardingViewModel) {
         body = stringResource(R.string.onboarding_autostart_body),
         actionLabel = stringResource(R.string.onboarding_autostart_action),
         onAction = { vm.openFix(SettingsTarget.MIUI_AUTOSTART) },
-        whyLabel = stringResource(R.string.onboarding_autostart_confirm_action),
-        whyText = null,
-        content = { vm.selfConfirm(OnboardingPlan.StepId.AUTOSTART) }
+        // HyperOS reports nothing here, so the user's word is the answer, and the word moves the
+        // wizard on: a confirm that only wrote a preference used to leave the step on screen.
+        secondaryLabel = stringResource(R.string.onboarding_autostart_confirm_action),
+        onSecondary = { vm.confirmStep(OnboardingPlan.StepId.AUTOSTART) }
     )
 }

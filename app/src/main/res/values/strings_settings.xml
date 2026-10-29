@@ -129,4 +129,9 @@
     <string name="settings_popup_card_title">Allow pop-ups</string>
     <string name="settings_popup_card_body">The question is using the backup layer. Allow pop-ups so it appears faster.</string>
     <string name="settings_popup_card_action">Open settings</string>
+
+    <!-- The morning window on its own (Guard → "Your morning"). -->
+    <string name="morning_section_window">MORNING WINDOW</string>
+    <string name="morning_enabled_title">Protect the morning</string>
+    <string name="morning_body">From Fajr until this time, Sadiq asks before a feed opens. The window never runs past Dhuhr.</string>
 </resources>

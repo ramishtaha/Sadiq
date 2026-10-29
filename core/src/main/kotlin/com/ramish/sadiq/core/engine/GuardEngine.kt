@@ -266,10 +266,17 @@ class GuardEngine(
                 val pkg = on.foregroundPackage
                 val guardedByConfig = pkg != null &&
                     Guardedness.isGuarded(pkg, null, AppSurface.APP, ctx.config)
+                // G-07: an unlock may only resume a grant over an app the grant covers. A known,
+                // unguarded foreground (WhatsApp, the launcher, the camera, Settings) leaves the
+                // grant held, so the grace ends it as the early exit it was instead of draining the
+                // budget there and naming that app on TIME_UP. An unknown foreground means no window
+                // data arrived at all, and only then is the held grant trusted to resume.
+                val sameWindow = on.grant?.windowAtStart == ctx.window.kind
                 when {
                     // F-01: a lock/unlock during a Stay must not silently freeze the grant. The grace
                     // exists to bridge exactly this moment, so the screen coming back on resumes it.
-                    on.phase == Phase.HELD && on.grant != null ->
+                    on.phase == Phase.HELD && on.grant != null &&
+                        (pkg == null || guardedByConfig) && sameWindow ->
                         resumeSavedGrant(on, on.grant, pkg ?: on.grant.firstPackage, now, effects)
 
                     pkg != null && on.phase in setOf(Phase.IDLE, Phase.HELD) && guardedByConfig ->

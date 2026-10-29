@@ -39,8 +39,8 @@
     <string name="onboarding_accessibility_why_action">Why?</string>
     <string name="onboarding_accessibility_why_text">Android has no other way to know when you open a feed. Sadiq can\'t close apps. It can ask, and take you home.</string>
 
-    <string name="onboarding_restricted_headline">"Restricted setting" found.</string>
-    <string name="onboarding_restricted_body">Android says: "For your security, this setting is currently unavailable."</string>
+    <string name="onboarding_restricted_headline">Still not on?</string>
+    <string name="onboarding_restricted_body">If the switch is greyed out, Android is blocking it: "For your security, this setting is currently unavailable." Open App info, allow restricted settings, then try again.</string>
     <string name="onboarding_restricted_action">Open App info</string>
     <string name="onboarding_restricted_why_action">Why?</string>
     <string name="onboarding_restricted_why_text">Sadiq was installed from a side-loaded APK. This is Android\'s new security control. Follow the steps, then come back.</string>
@@ -60,9 +60,16 @@
     <string name="onboarding_usage_why_action">Why?</string>
     <string name="onboarding_usage_why_text">Usage access lets Sadiq see how much time you spend in apps, so it can show you weekly trends and suggest better guard times. Sadiq has no internet, so nothing leaves your phone.</string>
 
+    <!-- Shown on every permission step Sadiq cannot demand. A denied permission is the user's
+         answer, setup continues, and Health check reports the truth afterwards. -->
+    <string name="onboarding_skip_action">Skip for now</string>
+
     <string name="onboarding_try_headline">Try the question.</string>
     <string name="onboarding_try_body">Sadiq will arm a self-test. Open %1$s. Sadiq will step in.</string>
     <string name="onboarding_try_action">Open %1$s</string>
+    <string name="onboarding_try_finish_action">Finish</string>
+    <string name="onboarding_try_retry_action">Try again</string>
+    <string name="onboarding_try_finish_anyway_action">Finish anyway</string>
     <string name="onboarding_try_success">It works. Here\'s your first star.</string>
     <string name="onboarding_try_any_app">an app</string>
     <string name="onboarding_try_missed">No test screen from %1$s. Open it again, or check the app is installed.</string>

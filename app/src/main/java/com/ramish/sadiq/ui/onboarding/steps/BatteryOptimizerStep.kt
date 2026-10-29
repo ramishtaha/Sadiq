@@ -17,6 +17,9 @@ fun BatteryOptimizerStep(vm: OnboardingViewModel) {
         headline = stringResource(R.string.onboarding_battery_headline),
         body = stringResource(R.string.onboarding_battery_body),
         actionLabel = stringResource(R.string.onboarding_battery_action),
-        onAction = { vm.openFix(SettingsTarget.BATTERY_OPT_REQUEST) }
+        onAction = { vm.openFix(SettingsTarget.BATTERY_OPT_REQUEST) },
+        // The exemption read can fail on a locked-down ROM; the user still gets past the step.
+        secondaryLabel = stringResource(R.string.onboarding_skip_action),
+        onSecondary = { vm.skipCurrent() }
     )
 }

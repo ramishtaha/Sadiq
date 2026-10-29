@@ -22,6 +22,9 @@ object OnboardingPlan {
      *
      * It is nested in [OnboardingPlan] because the plan owns the order and every caller refers to a
      * step as `OnboardingPlan.StepId`.
+     *
+     * **The declaration order is the plan order.** The wizard compares steps by ordinal to find the
+     * step that follows the one the user just finished, so reordering this list reorders the wizard.
      */
     enum class StepId {
         WELCOME,
@@ -44,9 +47,21 @@ object OnboardingPlan {
      * The list of steps for the given [PermissionSnapshot].
      *
      * The conditions come straight from §4.7. The flow is strictly linear, with the exception of the
-     * `RESTRICTED_SETTING` step which is inserted immediately after `ACCESSIBILITY` fails.
+     * `RESTRICTED_SETTING` step, which follows `ACCESSIBILITY` once the user has been to the OS page
+     * and the service is still off: that is the only case in which Android's "Restricted setting"
+     * block can be the reason, and it is the only case in which O5b can help.
+     *
+     * @param perms what the permission reader last found.
+     * @param isXiaomi whether the OEM-only steps apply.
+     * @param accessibilityTried whether the user has already opened the accessibility page once. O5b
+     *   exists only after that, so a user who has never seen the switch is never told about a block
+     *   that may not exist.
      */
-    fun steps(perms: PermissionSnapshot, isXiaomi: Boolean): List<StepId> {
+    fun steps(
+        perms: PermissionSnapshot,
+        isXiaomi: Boolean,
+        accessibilityTried: Boolean = false,
+    ): List<StepId> {
         val steps = mutableListOf<StepId>()
 
         steps.add(StepId.WELCOME)
@@ -60,9 +75,10 @@ object OnboardingPlan {
         // O4: Nights and prayer, always shown
         steps.add(StepId.TIMES)
 
-        // O5: Accessibility
+        // O5: Accessibility, and O5b when the user has been there and it is still off
         if (!perms.accessibilityEnabled || !perms.accessibilityConnected) {
             steps.add(StepId.ACCESSIBILITY)
+            if (accessibilityTried) steps.add(StepId.RESTRICTED_SETTING)
         }
 
         // O6: Notifications

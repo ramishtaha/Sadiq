@@ -17,6 +17,10 @@ fun PopupsStep(vm: OnboardingViewModel) {
         headline = stringResource(R.string.onboarding_popups_headline),
         body = stringResource(R.string.onboarding_popups_body),
         actionLabel = stringResource(R.string.onboarding_popups_action),
-        onAction = { vm.openFix(SettingsTarget.MIUI_OTHER_PERMISSIONS) }
+        onAction = { vm.openFix(SettingsTarget.MIUI_OTHER_PERMISSIONS) },
+        // On a HyperOS build this op can read UNKNOWN forever. The step explains the fallback; it
+        // must not become the place a user is stuck.
+        secondaryLabel = stringResource(R.string.onboarding_skip_action),
+        onSecondary = { vm.skipCurrent() }
     )
 }

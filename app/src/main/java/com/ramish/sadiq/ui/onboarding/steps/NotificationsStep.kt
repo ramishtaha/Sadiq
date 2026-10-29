@@ -17,6 +17,10 @@ fun NotificationsStep(vm: OnboardingViewModel) {
         headline = stringResource(R.string.onboarding_notifications_headline),
         body = stringResource(R.string.onboarding_notifications_body),
         actionLabel = stringResource(R.string.onboarding_notifications_action),
-        onAction = { vm.openFix(SettingsTarget.NOTIFICATIONS) }
+        onAction = { vm.openFix(SettingsTarget.NOTIFICATIONS) },
+        // A denied notification permission is not a wall: the timer simply has no shade line. The
+        // wizard says so by letting the user past instead of holding them on a step they cannot win.
+        secondaryLabel = stringResource(R.string.onboarding_skip_action),
+        onSecondary = { vm.skipCurrent() }
     )
 }

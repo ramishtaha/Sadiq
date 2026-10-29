@@ -17,6 +17,8 @@ fun RecentsStep(vm: OnboardingViewModel) {
         headline = stringResource(R.string.onboarding_recents_headline),
         body = stringResource(R.string.onboarding_recents_body),
         actionLabel = stringResource(R.string.onboarding_recents_action),
-        onAction = { vm.selfConfirm(OnboardingPlan.StepId.RECENTS) }
+        // There is no settings page for the Recents gesture, so the button is the whole answer:
+        // the user confirms it and the wizard moves on.
+        onAction = { vm.confirmStep(OnboardingPlan.StepId.RECENTS) }
     )
 }

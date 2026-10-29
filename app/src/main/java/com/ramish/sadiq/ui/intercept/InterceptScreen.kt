@@ -1,39 +1,69 @@
 package com.ramish.sadiq.ui.intercept
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ramish.sadiq.R
 import com.ramish.sadiq.core.engine.Choice
-import com.ramish.sadiq.core.engine.GrantKind
 import com.ramish.sadiq.core.engine.InterceptUi
 import com.ramish.sadiq.core.engine.SurfaceKind
-import com.ramish.sadiq.core.insight.ReflectionReason
+import com.ramish.sadiq.core.engine.SurfaceKind.PAUSE
+import com.ramish.sadiq.core.engine.SurfaceKind.REFLECT
 import com.ramish.sadiq.core.model.Mode
-import com.ramish.sadiq.core.model.PrayerName
+import com.ramish.sadiq.ui.components.ChoiceChips
 import com.ramish.sadiq.ui.components.ComponentPreview
-import com.ramish.sadiq.ui.components.PrimaryPillButton
+import com.ramish.sadiq.ui.components.HoldToConfirmButton
+import com.ramish.sadiq.ui.theme.LocalReduceMotion
 import com.ramish.sadiq.ui.theme.SadiqTheme
 import com.ramish.sadiq.ui.theme.Spacing
 import com.ramish.sadiq.ui.theme.ThemeFlavor
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.delay
 
 /**
- * @Composable fun InterceptScreen(ui: InterceptUi, onChoice: (Choice) -> Unit, appLabel: String)
+ * The question, exactly as the engine described it in [ui].
+ *
+ * Three rules from the plan live here and nowhere else:
+ *
+ * - **Leave is always answerable.** The primary pill says what leaving does, and Back is the same
+ *   answer ([BackHandler]), so no surface can be escaped without telling the engine.
+ * - **Every option submits the [Choice] its label names.** The mapping is [InterceptCopy.primaryChoice],
+ *   [InterceptCopy.secondaryChoice] and [InterceptCopy.tertiaryChoice]; the screen never invents one.
+ * - **Nothing dead is drawn.** An option whose label is null is not rendered, and the values on the
+ *   labels come from the surface itself, so a chip can never offer minutes the engine would refuse.
+ *
+ * @param ui the surface to draw.
+ * @param onChoice every answer, sent to the engine by the host exactly once.
+ * @param appLabel the app's own label, named in the prayer and test lines.
+ * @param appIcon the app icon slot (the chip draws it through [AppChip]).
+ * @param interceptCopy the copy rules.
+ * @param grantedMinutes TIME_UP only: the length of the grant that ran out, so the headline can
+ *   say "That's the 5 minutes you chose." instead of "That's the 0 minutes you chose.".
  */
 @Composable
 fun InterceptScreen(
@@ -41,10 +71,34 @@ fun InterceptScreen(
     onChoice: (Choice) -> Unit,
     appLabel: String,
     appIcon: @Composable () -> Unit,
-    interceptCopy: InterceptCopy
+    interceptCopy: InterceptCopy,
+    grantedMinutes: Int? = null
 ) {
     val copy = interceptCopy
     val scrollState = rememberScrollState()
+    val nowWall = rememberWallClock(ui.kind)
+    val reduceMotion = LocalReduceMotion.current
+
+    // True for the 400 ms after Leave: the confirmation replaces the question for one beat. It is
+    // a local flourish only — the answer itself is sent in the same tap, so a fast Home press can
+    // never swallow it — and it reverts on its own if the surface somehow stays up.
+    var confirmingLeave by remember { mutableStateOf(false) }
+
+    val leave: () -> Unit = {
+        if (playsLeaveConfirmation(ui.kind) && !reduceMotion) confirmingLeave = true
+        onChoice(Choice.Leave)
+    }
+
+    LaunchedEffect(confirmingLeave) {
+        if (confirmingLeave) {
+            delay(LEAVE_CONFIRM_MS)
+            confirmingLeave = false
+        }
+    }
+
+    // Back = Leave (§4.4). Without this, Back finishes the activity and leaves the engine in
+    // PROMPTING with nothing draining.
+    BackHandler { leave() }
 
     SadiqTheme(flavor = if (ui.forceDark) ThemeFlavor.DARK else ThemeFlavor.LIGHT) {
         Surface(color = MaterialTheme.colorScheme.background) {
@@ -56,112 +110,56 @@ fun InterceptScreen(
                     .widthIn(max = 480.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.height(32.dp)) // Top (32 dp from the top)
+                Spacer(Modifier.height(32.dp))
 
                 // App chip
                 AppChip(packageName = ui.packageName, label = appLabel)
 
-                Spacer(Modifier.height(Spacing.xl)) // 20 dp gap
+                Spacer(Modifier.height(Spacing.xl))
 
-                // Middle content (glyph, headline, subtitle, reflect card)
-                InterceptGlyph(ui = ui)
-                Spacer(Modifier.height(Spacing.md)) // 12 dp gap
-                InterceptHeadline(text = copy.headline(ui))
-                Spacer(Modifier.height(Spacing.md)) // 12 dp gap
+                // Middle content (glyph, headline, subtitle or check-in card)
+                val glyphScale by animateFloatAsState(
+                    targetValue = if (confirmingLeave) 1.4f else 1f,
+                    animationSpec = tween(durationMillis = LEAVE_CONFIRM_MS.toInt())
+                )
+                InterceptGlyph(ui = ui, modifier = Modifier.scale(glyphScale))
+                Spacer(Modifier.height(Spacing.md))
 
-                if (ui.kind == SurfaceKind.REFLECT) {
-                    ReflectCard(ui = ui, onReasonSelected = { reason ->
-                        onChoice(Choice.Reflect(reason))
-                    }, copy = copy)
-                } else {
-                    copy.subtitle(ui)?.let { subtitle ->
-                        InterceptSubtitle(text = subtitle)
+                InterceptHeadline(
+                    text = if (confirmingLeave) {
+                        copy.leaveConfirmation()
+                    } else {
+                        copy.headline(ui = ui, nowWall = nowWall, grantedMinutes = grantedMinutes)
+                    }
+                )
+                Spacer(Modifier.height(Spacing.md))
+
+                if (!confirmingLeave) {
+                    if (ui.kind == SurfaceKind.REFLECT) {
+                        ReflectCard(
+                            ui = ui,
+                            onReasonSelected = { reason -> onChoice(Choice.Reflect(reason)) },
+                            onStartFocus = { onChoice(copy.startFocusFiveChoice()) },
+                            copy = copy
+                        )
+                    } else {
+                        copy.subtitle(ui = ui, appLabel = appLabel, nowWall = nowWall)?.let { subtitle ->
+                            InterceptSubtitle(text = subtitle)
+                        }
                     }
                 }
 
                 Spacer(Modifier.weight(1f)) // Middle (weight 1, centred)
 
-                // Bottom content (primary, secondary, tertiary, caption)
-                PrimaryActionButton(
-                    text = copy.primaryButton(ui),
-                    onClick = {
-                        when (ui.kind) {
-                            SurfaceKind.PAUSE, SurfaceKind.REFLECT -> onChoice(Choice.Leave)
-                            SurfaceKind.PRAYER -> onChoice(Choice.Stay(5)) // Default stay for prayer
-                            SurfaceKind.MORNING -> onChoice(Choice.StartFocusNow(5))
-                            SurfaceKind.COOLDOWN, SurfaceKind.SLEEP_GATE, SurfaceKind.TIME_UP, SurfaceKind.TEST -> onChoice(Choice.Leave)
-                            SurfaceKind.FOCUS_GUARD -> onChoice(Choice.BackToFocus)
-                            else -> { /* No primary action for other kinds */ }
-                        }
-                    },
-                    leaveEarnsStar = ui.leaveEarnsStar && ui.kind != SurfaceKind.TEST
-                )
-
-                copy.secondaryButton(ui)?.let { secondaryButtonLabel ->
-                    Spacer(Modifier.height(Spacing.md)) // 12 dp gap
-                    when (ui.kind) {
-                        SurfaceKind.PAUSE, SurfaceKind.REFLECT, SurfaceKind.PRAYER -> {
-                            SecondaryActionButton(
-                                text = secondaryButtonLabel,
-                                onClick = { /* Will open chips */ },
-                                showChips = true,
-                                chipOptions = ui.stayOptionsMin,
-                                onChipSelected = { minutes -> onChoice(Choice.Stay(minutes)) }
-                            )
-                        }
-                        SurfaceKind.MORNING -> {
-                            PrimaryActionButton(
-                                text = secondaryButtonLabel,
-                                onClick = { onChoice(Choice.Leave) },
-                                leaveEarnsStar = ui.leaveEarnsStar
-                            )
-                        }
-                        SurfaceKind.SLEEP_GATE -> {
-                            PrimaryActionButton(
-                                text = secondaryButtonLabel,
-                                onClick = { onChoice(Choice.WindDown) },
-                                leaveEarnsStar = false // Wind down does not earn a star
-                            )
-                        }
-                        SurfaceKind.FOCUS_GUARD -> {
-                            PrimaryActionButton(
-                                text = secondaryButtonLabel,
-                                onClick = { onChoice(Choice.EndFocus) },
-                                leaveEarnsStar = false // Ending focus does not earn a star directly
-                            )
-                        }
-                        SurfaceKind.TIME_UP -> {
-                            SecondaryActionButton(
-                                text = secondaryButtonLabel,
-                                onClick = { /* Will open chips */ },
-                                showChips = true,
-                                chipOptions = ui.stayOptionsMin,
-                                onChipSelected = { minutes -> onChoice(Choice.Stay(minutes)) }
-                            )
-                        }
-                        else -> { /* No secondary button for other kinds */ }
-                    }
-                }
-
-                copy.tertiaryButton(ui)?.let { tertiaryButtonLabel ->
-                    Spacer(Modifier.height(Spacing.md)) // 8 dp gap
-                    TertiaryActionButton(
-                        text = tertiaryButtonLabel,
-                        onClick = {
-                            when (ui.kind) {
-                                SurfaceKind.PAUSE, SurfaceKind.REFLECT -> onChoice(Choice.FreeScroll(TimeUnit.MILLISECONDS.toMinutes(ui.freeScrollAvailableMs ?: 0L).toInt()))
-                                SurfaceKind.COOLDOWN, SurfaceKind.SLEEP_GATE, SurfaceKind.FOCUS_GUARD -> onChoice(Choice.QuickNeed)
-                                SurfaceKind.TIME_UP -> onChoice(Choice.FreeScroll(TimeUnit.MILLISECONDS.toMinutes(ui.freeScrollAvailableMs ?: 0L).toInt()))
-                                else -> { /* No tertiary action for other kinds */ }
-                            }
-                        },
-                        requiresHold = (ui.kind == SurfaceKind.COOLDOWN || ui.kind == SurfaceKind.SLEEP_GATE || ui.kind == SurfaceKind.FOCUS_GUARD) && (ui.quickNeedsLeft ?: 0 > 0)
+                // Bottom content (primary, secondary, chips, caption)
+                if (!confirmingLeave) {
+                    SurfaceActions(
+                        ui = ui,
+                        copy = copy,
+                        nowWall = nowWall,
+                        onAnswer = onChoice,
+                        onLeave = leave
                     )
-                }
-
-                copy.caption(ui)?.let { caption ->
-                    Spacer(Modifier.height(Spacing.md)) // 12 dp gap
-                    InterceptCaption(text = caption)
                 }
 
                 Spacer(Modifier.height(20.dp)) // 20 dp above the nav bar
@@ -169,6 +167,122 @@ fun InterceptScreen(
         }
     }
 }
+
+/**
+ * The bottom block: one primary, at most one secondary, then the smaller options.
+ *
+ * Each section is guarded by its own label being non-null, which is how [InterceptCopy] decides
+ * whether the engine would accept that answer. A null never turns into a disabled pill.
+ */
+@Composable
+private fun SurfaceActions(
+    ui: InterceptUi,
+    copy: InterceptCopy,
+    nowWall: Long,
+    onAnswer: (Choice) -> Unit,
+    onLeave: () -> Unit
+) {
+    val primary = copy.primaryChoice(ui)
+    PrimaryActionButton(
+        text = copy.primaryButton(ui),
+        onClick = { if (primary == Choice.Leave) onLeave() else onAnswer(primary) },
+        // The star icon is a fact about this answer, not decoration: it appears only when leaving
+        // right now lights one, and never on the self-test, which makes no star of its own.
+        leaveEarnsStar = ui.leaveEarnsStar && primary == Choice.Leave && ui.kind != SurfaceKind.TEST
+    )
+
+    val secondaryLabel = copy.secondaryButton(ui)
+    val secondary = copy.secondaryChoice(ui)
+    if (secondaryLabel != null) {
+        Spacer(Modifier.height(Spacing.md))
+        if (secondary != null) {
+            SecondaryActionButton(
+                text = secondaryLabel,
+                onClick = { onAnswer(secondary) },
+                icon = if (secondary == Choice.Leave && ui.leaveEarnsStar) Icons.Filled.Star else null,
+                iconContentDescription = if (secondary == Choice.Leave && ui.leaveEarnsStar) {
+                    stringResource(R.string.intercept_leave_star_content_description)
+                } else {
+                    null
+                }
+            )
+        } else {
+            // PAUSE, REFLECT, PRAYER and TIME_UP: the second answer is "yes, for how long".
+            StayOptionsButton(
+                text = secondaryLabel,
+                options = ui.stayOptionsMin,
+                header = copy.forHowLong(),
+                chipLabel = { minutes -> copy.stayChipLabel(minutes) },
+                onSelect = { minutes -> onAnswer(Choice.Stay(minutes)) }
+            )
+        }
+    }
+
+    // The morning's soft yes: two minutes, held to confirm (§4.4).
+    if (ui.kind == SurfaceKind.MORNING) {
+        ui.stayOptionsMin.firstOrNull()?.let { minutes ->
+            Spacer(Modifier.height(Spacing.md))
+            HoldToConfirmButton(
+                text = copy.holdForMinutes(minutes),
+                onConfirm = { onAnswer(Choice.Stay(minutes)) }
+            )
+        }
+    }
+
+    // Free scroll is a slice the user picks. It used to spend the whole balance in one tap, which
+    // is not what "use 5 minutes of it" says.
+    if (ui.freeScrollOptionsMin.isNotEmpty()) {
+        Spacer(Modifier.height(Spacing.md))
+        ChoiceChips(
+            options = ui.freeScrollOptionsMin,
+            selected = null,
+            onSelect = { minutes -> onAnswer(Choice.FreeScroll(minutes)) },
+            label = { minutes -> copy.freeScrollChipLabel(minutes) }
+        )
+    }
+
+    val quickLabel = copy.tertiaryButton(ui)
+    val quickChoice = copy.tertiaryChoice(ui)
+    if (quickLabel != null && quickChoice != null) {
+        Spacer(Modifier.height(Spacing.md))
+        HoldToConfirmButton(
+            text = quickLabel,
+            onConfirm = { onAnswer(quickChoice) }
+        )
+    }
+
+    copy.caption(ui = ui, nowWall = nowWall)?.let { caption ->
+        Spacer(Modifier.height(Spacing.md))
+        InterceptCaption(text = caption)
+    }
+}
+
+/** Whether leaving this surface plays the 400 ms confirmation before the answer is sent. */
+private fun playsLeaveConfirmation(kind: SurfaceKind): Boolean = kind == PAUSE || kind == REFLECT
+
+/**
+ * The wall clock, refreshed twice a minute while the surface is up.
+ *
+ * Every time and duration the surface states is measured from this value, so "It's 23:40" and
+ * "That's 5 h 41 m from now" stay true while the question sits unanswered.
+ */
+@Composable
+private fun rememberWallClock(kind: SurfaceKind): Long {
+    var nowWall by remember(kind) { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(kind) {
+        while (true) {
+            delay(CLOCK_TICK_MS)
+            nowWall = System.currentTimeMillis()
+        }
+    }
+    return nowWall
+}
+
+/** The leave confirmation's length, in milliseconds (plan §4.4). */
+private const val LEAVE_CONFIRM_MS: Long = 400L
+
+/** How often the surface re-reads the wall clock. */
+private const val CLOCK_TICK_MS: Long = 30_000L
 
 // Mock implementation for previews
 @Preview(name = "InterceptScreen · PAUSE · Light", widthDp = 360, showBackground = true)

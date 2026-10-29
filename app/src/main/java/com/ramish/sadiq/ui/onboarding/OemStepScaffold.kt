@@ -32,6 +32,7 @@ import com.ramish.sadiq.R
 import com.ramish.sadiq.ui.components.ComponentPreview
 import com.ramish.sadiq.ui.components.PrimaryPillButton
 import com.ramish.sadiq.ui.components.TextPillButton
+import com.ramish.sadiq.ui.components.TonalPillButton
 import com.ramish.sadiq.ui.theme.Motion
 import com.ramish.sadiq.ui.theme.Spacing
 import com.ramish.sadiq.ui.theme.ThemeFlavor
@@ -50,6 +51,9 @@ import com.ramish.sadiq.ui.theme.ThemeFlavor
  * @param onAction what the primary action does.
  * @param whyLabel the optional "Why?" action's label.
  * @param whyText the optional text to show when "Why?" is tapped.
+ * @param secondaryLabel an optional second action, drawn above the primary. Self-confirm steps use
+ *   it for "I set it", and permissions that can be declined use it for "Skip for now".
+ * @param onSecondary what that second action does.
  * @param modifier for padding the whole step.
  * @param actionEnabled whether the primary action is enabled.
  * @param actionIcon an optional icon for the primary action.
@@ -69,6 +73,8 @@ fun OemStepScaffold(
     actionIconContentDescription: String? = null,
     whyLabel: String? = null,
     whyText: String? = null,
+    secondaryLabel: String? = null,
+    onSecondary: (() -> Unit)? = null,
     content: @Composable (() -> Unit)? = null,
 ) {
     var showWhy by remember { mutableStateOf(false) }
@@ -121,6 +127,10 @@ fun OemStepScaffold(
             }
         }
         Spacer(Modifier.weight(1f))
+        if (secondaryLabel != null && onSecondary != null) {
+            TonalPillButton(text = secondaryLabel, onClick = onSecondary)
+            Spacer(Modifier.height(Spacing.sm))
+        }
         PrimaryPillButton(
             text = actionLabel,
             onClick = onAction,

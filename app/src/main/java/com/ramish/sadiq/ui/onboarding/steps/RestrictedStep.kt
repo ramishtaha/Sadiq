@@ -19,6 +19,10 @@ fun RestrictedStep(vm: OnboardingViewModel) {
         actionLabel = stringResource(R.string.onboarding_restricted_action),
         onAction = { vm.openFix(SettingsTarget.APP_INFO) },
         whyLabel = stringResource(R.string.onboarding_restricted_why_action),
-        whyText = stringResource(R.string.onboarding_restricted_why_text)
+        whyText = stringResource(R.string.onboarding_restricted_why_text),
+        // A phone that will not allow the service at all must still be able to finish setup: the
+        // Health check reports the truth afterwards, and the Sky card says Sadiq is asleep.
+        secondaryLabel = stringResource(R.string.onboarding_skip_action),
+        onSecondary = { vm.skipCurrent() }
     )
 }

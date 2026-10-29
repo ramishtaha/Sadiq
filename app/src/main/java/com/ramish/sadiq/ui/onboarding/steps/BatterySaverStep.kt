@@ -19,10 +19,9 @@ fun BatterySaverStep(vm: OnboardingViewModel) {
         body = stringResource(R.string.onboarding_batterysaver_body),
         actionLabel = stringResource(R.string.onboarding_batterysaver_action),
         onAction = { vm.openFix(SettingsTarget.MIUI_BATTERY_SAVER) },
-        whyLabel = stringResource(R.string.onboarding_batterysaver_confirm_action),
-        whyText = null, // This is a confirm button, not a "why" text
-        // The content slot is used here for the self-confirm action triggered by tapping the whyLabel.
-        // The whyLabel acts as a secondary action button in this context.
-        content = { vm.selfConfirm(OnboardingPlan.StepId.BATTERY_SAVER) } // self-confirm
+        // HyperOS reports nothing here either. The confirm is a real button that both records the
+        // answer and advances, instead of a side effect of being drawn.
+        secondaryLabel = stringResource(R.string.onboarding_batterysaver_confirm_action),
+        onSecondary = { vm.confirmStep(OnboardingPlan.StepId.BATTERY_SAVER) }
     )
 }

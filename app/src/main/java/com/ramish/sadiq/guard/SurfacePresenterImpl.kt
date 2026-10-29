@@ -119,7 +119,16 @@ class SurfacePresenterImpl @Inject constructor(
     }
 
     override fun update(ui: InterceptUi) {
-        holder.update(ui)
+        // An update presumes a host is already drawing the surface (T17's check-in, T18's app chip).
+        // After a process restart the engine restores `PROMPTING` from the snapshot while nothing is
+        // on screen, so every later guarded open only emits `UpdateSurface` — and a surface written
+        // into the holder that no host renders is the question silently never appearing. An update
+        // no host can render is therefore a show.
+        if (holder.isVisible() || holder.overlayRequested.value || fallbackJob?.isActive == true) {
+            holder.update(ui)
+        } else {
+            show(ui)
+        }
     }
 
     override fun dismiss() {

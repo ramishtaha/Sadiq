@@ -19,6 +19,10 @@ fun UsageStep(vm: OnboardingViewModel) {
         actionLabel = stringResource(R.string.onboarding_usage_action),
         onAction = { vm.openFix(SettingsTarget.USAGE_ACCESS) },
         whyLabel = stringResource(R.string.onboarding_usage_why_action),
-        whyText = stringResource(R.string.onboarding_usage_why_text)
+        whyText = stringResource(R.string.onboarding_usage_why_text),
+        // Usage access is optional: the Week screen is worse without it, but the wizard is not
+        // allowed to hold a user who will not grant it.
+        secondaryLabel = stringResource(R.string.onboarding_usage_skip_action),
+        onSecondary = { vm.skipCurrent() }
     )
 }

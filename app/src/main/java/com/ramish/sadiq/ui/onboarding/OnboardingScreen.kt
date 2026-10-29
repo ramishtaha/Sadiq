@@ -18,11 +18,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -59,10 +61,21 @@ private const val TRACK_ALPHA = 0.24f
 fun OnboardingScreen(nav: NavHostController, vm: OnboardingViewModel = hiltViewModel()) {
     val state: OnboardingUiState by vm.uiState.collectAsStateWithLifecycle()
 
-    // When the onboarding is done, pop to Sky
-    if (state.steps.isNotEmpty() && state.index >= state.steps.size) {
-        nav.navigate(Routes.SKY) {
-            popUpTo(nav.graph.id) { inclusive = true }
+    // Every permission step is granted on a page Android owns, so the wizard only learns about it
+    // when the screen comes back to the foreground. Without this the step never moved and the user
+    // saw the same button forever.
+    LifecycleResumeEffect(Unit) {
+        vm.refresh()
+        onPauseOrDispose { }
+    }
+
+    // The wizard is over: leave it, and take the back stack with it so Back cannot re-enter setup.
+    LaunchedEffect(state.done) {
+        if (state.done) {
+            nav.navigate(Routes.SKY) {
+                popUpTo(nav.graph.startDestinationId) { inclusive = true }
+                launchSingleTop = true
+            }
         }
     }
 
@@ -72,10 +85,9 @@ fun OnboardingScreen(nav: NavHostController, vm: OnboardingViewModel = hiltViewM
     }
 
     if (state.loading) {
-        // Show a blank screen until initial data is loaded
-        Box(modifier = Modifier.fillMaxSize()) {
-            // TODO: Add a loading indicator if needed
-        }
+        // One blank page while the app list and the settings are read: the wizard has nothing true
+        // to say yet, and a spinner over the page colour would only flash.
+        Box(modifier = Modifier.fillMaxSize())
         return
     }
 
@@ -118,7 +130,8 @@ fun OnboardingScreen(nav: NavHostController, vm: OnboardingViewModel = hiltViewM
                 OnboardingPlan.StepId.USAGE -> UsageStep(vm)
                 OnboardingPlan.StepId.TRY_IT -> TryItStep(vm)
                 null -> {
-                    // Handle null case, perhaps navigate away or show an error
+                    // The wizard has no step to draw because it is finished; the effect above is
+                    // already leaving for the Sky.
                 }
             }
         }

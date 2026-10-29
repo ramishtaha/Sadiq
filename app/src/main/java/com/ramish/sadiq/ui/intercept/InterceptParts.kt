@@ -25,7 +25,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,7 +92,7 @@ fun AppChip(packageName: String, label: String) {
 
 /** The hero glyph. */
 @Composable
-fun InterceptGlyph(ui: InterceptUi) {
+fun InterceptGlyph(ui: InterceptUi, modifier: Modifier = Modifier) {
     val tint = when (ui.kind) {
         SurfaceKind.PAUSE, SurfaceKind.REFLECT, SurfaceKind.TIME_UP -> MaterialTheme.colorScheme.primary
         SurfaceKind.SLEEP_GATE -> MaterialTheme.colorScheme.tertiary
@@ -107,7 +110,7 @@ fun InterceptGlyph(ui: InterceptUi) {
     Icon(
         imageVector = imageVector,
         contentDescription = null, // The headline describes the icon.
-        modifier = Modifier.size(56.dp),
+        modifier = modifier.size(56.dp),
         tint = tint
     )
 }
@@ -149,7 +152,12 @@ fun InterceptCaption(text: String) {
 
 /** Reflection card inside a REFLECT surface. */
 @Composable
-fun ReflectCard(ui: InterceptUi, onReasonSelected: (ReflectionReason) -> Unit, copy: InterceptCopy) {
+fun ReflectCard(
+    ui: InterceptUi,
+    onReasonSelected: (ReflectionReason) -> Unit,
+    onStartFocus: () -> Unit,
+    copy: InterceptCopy,
+) {
     // ChoiceChips takes a plain `(T) -> String`, so the chip labels are resolved here.
     val context = LocalContext.current
     SadiqCard(
@@ -166,7 +174,7 @@ fun ReflectCard(ui: InterceptUi, onReasonSelected: (ReflectionReason) -> Unit, c
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            InterceptSubtitle(text = copy.subtitle(ui)!!)
+            copy.subtitle(ui)?.let { InterceptSubtitle(text = it) }
             Spacer(Modifier.height(Spacing.md))
             // The REFLECT UI shows chips for reflection reasons.
             ChoiceChips(
@@ -177,9 +185,10 @@ fun ReflectCard(ui: InterceptUi, onReasonSelected: (ReflectionReason) -> Unit, c
             )
             if (ui.reflectReason != null && ui.suggestion?.action == SuggestionAction.START_FOCUS_5) {
                 Spacer(Modifier.height(Spacing.lg))
+                // The pill does what it says: it starts the five-minute focus, from this surface.
                 PrimaryPillButton(
                     text = stringResource(R.string.intercept_reflect_action_start_focus_5),
-                    onClick = { /* TODO: Implement start focus action */ },
+                    onClick = onStartFocus,
                     fillWidth = false
                 )
             }
@@ -198,20 +207,57 @@ fun PrimaryActionButton(text: String, onClick: () -> Unit, leaveEarnsStar: Boole
     )
 }
 
-/** Secondary action button. */
+/** Secondary action button: the plain tonal pill for a second answer that submits at once. */
 @Composable
-fun SecondaryActionButton(text: String, onClick: () -> Unit, showChips: Boolean, chipOptions: List<Int>, onChipSelected: (Int) -> Unit) {
-    // ChoiceChips takes a plain `(T) -> String`, so the chip labels are resolved here.
-    val context = LocalContext.current
-    Column(Modifier.animateContentSize()) {
-        TonalPillButton(text = text, onClick = onClick)
-        if (showChips) {
+fun SecondaryActionButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    iconContentDescription: String? = null,
+) {
+    TonalPillButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier,
+        icon = icon,
+        iconContentDescription = iconContentDescription
+    )
+}
+
+/**
+ * The "yes, for how long" pill: a tonal button that expands into the stay chips.
+ *
+ * The pill's own tap is a real action — it opens the lengths — so it is never a button that does
+ * nothing. The chips are the answers, and each one submits the minutes printed on it.
+ */
+@Composable
+fun StayOptionsButton(
+    text: String,
+    options: List<Int>,
+    header: String,
+    chipLabel: (Int) -> String,
+    onSelect: (Int) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(Modifier.animateContentSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+        TonalPillButton(
+            text = text,
+            onClick = { expanded = !expanded }
+        )
+        if (expanded) {
             Spacer(Modifier.height(Spacing.md))
+            Text(
+                text = header,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(Spacing.sm))
             ChoiceChips(
-                options = chipOptions,
-                selected = null, // No pre-selection for these chips
-                onSelect = onChipSelected,
-                label = { minutes -> context.getString(R.string.duration_minutes, minutes) }
+                options = options,
+                selected = null, // Nothing is chosen until a chip is tapped.
+                onSelect = onSelect,
+                label = chipLabel
             )
         }
     }
