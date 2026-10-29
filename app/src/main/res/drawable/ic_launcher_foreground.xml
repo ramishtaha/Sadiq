@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- A four-point star with a small satellite dot at its upper right. -->
+    <path
+        android:fillColor="#FFFCF6"
+        android:pathData="M52,30 L57.5,50.5 L78,56 L57.5,61.5 L52,82 L46.5,61.5 L26,56 L46.5,50.5 Z" />
+    <path
+        android:fillColor="#FFFCF6"
+        android:pathData="M73,32 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" />
+</vector>

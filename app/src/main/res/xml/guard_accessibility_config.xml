@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Event intake only: window state changes (which app came to the front) and window content for
+     the M2 inspectors. Text the user types is never read. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/guard_service_description"
+    android:isAccessibilityTool="false"
+    android:notificationTimeout="50"
+    android:settingsActivity="com.ramish.saduq.MainActivity"
+    android:summary="@string/guard_service_summary" />
