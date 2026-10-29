@@ -4,6 +4,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -78,10 +81,16 @@ fun OemStepScaffold(
     content: @Composable (() -> Unit)? = null,
 ) {
     var showWhy by remember { mutableStateOf(false) }
+    // The action must stay reachable. A scrolling Column cannot give a child weight(), so the button
+    // used to be pushed below a long apps list and the wizard looked like a dead end. The content
+    // scrolls; the action is pinned to the bottom.
+    Box(modifier = modifier.fillMaxSize()) {
     Column(
-        modifier = modifier
+        modifier = Modifier
+            .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.xl),
+            .padding(horizontal = Spacing.xl)
+            .padding(bottom = 112.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(Spacing.xxl))
@@ -126,7 +135,15 @@ fun OemStepScaffold(
                 )
             }
         }
-        Spacer(Modifier.weight(1f))
+    }
+
+    Column(
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.xl, vertical = Spacing.lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         if (secondaryLabel != null && onSecondary != null) {
             TonalPillButton(text = secondaryLabel, onClick = onSecondary)
             Spacer(Modifier.height(Spacing.sm))
@@ -136,9 +153,9 @@ fun OemStepScaffold(
             onClick = onAction,
             enabled = actionEnabled,
             icon = actionIcon,
-            iconContentDescription = actionIconContentDescription,
+            modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(Spacing.xxl))
+    }
     }
 }
 

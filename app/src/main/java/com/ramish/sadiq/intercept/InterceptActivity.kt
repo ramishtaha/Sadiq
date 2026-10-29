@@ -178,6 +178,13 @@ class InterceptActivity : ComponentActivity() {
         if (!isFinishing && !isDestroyed) finishAndRemoveTask()
     }
 
+    override fun onPause() {
+        super.onPause()
+        // Covered or left: the surface is not on screen any more. Keeping the latch would make the
+        // next guarded open emit UpdateSurface against a host nobody can see.
+        holder.reportHidden()
+    }
+
     /** The app's own label, or the package name when the label cannot be read. */
     private fun appLabelFor(packageName: String): String = try {
         packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()

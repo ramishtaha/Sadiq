@@ -114,6 +114,15 @@ class InterceptStateHolder @Inject constructor(
         mutableUi.value = null
     }
 
+    /**
+     * The host is no longer on screen (another app covered it, or the user went home) but the engine
+     * is still asking a question. Clearing only the visibility latch — not the ui — lets the next
+     * UpdateSurface relaunch a host instead of silently updating a screen nobody can see.
+     */
+    fun reportHidden() {
+        visible = false
+    }
+
     /** Ask for the overlay fallback. Called by the presenter when the activity missed its window. */
     fun requestOverlay() {
         if (!visible) mutableOverlayRequested.value = true
