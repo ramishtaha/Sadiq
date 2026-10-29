@@ -55,7 +55,7 @@ class ContextAssemblerTest {
         val schedule = RecordingSchedule()
         val assembler = ContextAssembler(schedule)
 
-        val ctx = assembler.assemble(FakeClock.EVENING, schedule.context, 1_234L)
+        val ctx = assembler.assemble(FakeClock.EVENING, GuardConfig(), 1_234L)
 
         assertSame(schedule.context, ctx)
     }

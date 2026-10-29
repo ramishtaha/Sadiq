@@ -64,10 +64,11 @@ sealed interface IntentExtra {
 /**
  * The ordered deep-link chains of §4.7, and the fallback rule that makes them safe.
  *
- * **Every chain ends on the app's own info page** (`android.settings.APPLICATION_DETAILS_SETTINGS`
- * with a `package:` URI), which exists on every Android 11+ device and from which the user can reach
- * every other page in two taps. A missing OEM activity, a renamed HyperOS menu or an activity that
- * is no longer exported therefore costs one extra tap, never a dead end.
+ * **Every chain ends on an app-info page**: the system's `APPLICATION_DETAILS_SETTINGS` page with a
+ * `package:` URI, which exists on every Android 11+ device and from which the user can reach every
+ * other page in two taps (or, for `APP_INFO` itself, MIUI's own app-details page). A missing OEM
+ * activity, a renamed HyperOS menu or an activity that is no longer exported therefore costs one
+ * extra tap, never a dead end.
  *
  * **The chains are static.** They include the MIUI activities on every device, not only on Xiaomi
  * phones: the onboarding wizard shows OEM steps only when `HyperOs.isXiaomiFamily`, so a Pixel never
@@ -85,10 +86,11 @@ object IntentCandidates {
     const val ACTION_ACCESSIBILITY_SETTINGS: String = "android.settings.ACCESSIBILITY_SETTINGS"
 
     /**
-     * `Settings.ACTION_ACCESSIBILITY_DETAILS_SETTINGS`.
+     * The Settings app's accessibility-details action, `android.settings.ACCESSIBILITY_DETAILS_SETTINGS`.
      *
-     * Carries the service component in `EXTRA_COMPONENT_NAME`. Some builds ignore the extra and open
-     * the service list, which is still the right screen.
+     * The platform keeps this one out of the public SDK, so it is written as a literal; it carries the
+     * service component in `EXTRA_COMPONENT_NAME`. Builds that ignore the action or the extra fall
+     * through to the accessibility list, which is still the right screen.
      */
     const val ACTION_ACCESSIBILITY_DETAILS_SETTINGS: String = "android.settings.ACCESSIBILITY_DETAILS_SETTINGS"
 
@@ -100,6 +102,15 @@ object IntentCandidates {
 
     /** `Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS`; needs `EXTRA_APP_PACKAGE` and `EXTRA_CHANNEL_ID`. */
     const val ACTION_CHANNEL_NOTIFICATION_SETTINGS: String = "android.settings.CHANNEL_NOTIFICATION_SETTINGS"
+
+    /**
+     * `Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS`, API 36.
+     *
+     * The only screen that owns the "promoted notifications" toggle; it does not exist below 36, so
+     * the candidate simply fails to resolve there and the chain moves on.
+     */
+    const val ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS: String =
+        "android.settings.APP_NOTIFICATION_PROMOTION_SETTINGS"
 
     /** `Settings.ACTION_USAGE_ACCESS_SETTINGS`. */
     const val ACTION_USAGE_ACCESS_SETTINGS: String = "android.settings.USAGE_ACCESS_SETTINGS"
@@ -179,7 +190,12 @@ object IntentCandidates {
      */
     const val ACCESSIBILITY_SERVICE_CLASS: String = "com.ramish.sadiq.guard.service.GuardAccessibilityService"
 
-    /** The app-info page every chain ends on. */
+    /**
+     * The system app-info page every chain ends on.
+     *
+     * It is the one page guaranteed to exist: the action is public, it takes a `package:` URI, and
+     * every Settings app since Android 6 has handled it.
+     */
     private val appInfo: IntentCandidate = IntentCandidate(
         action = ACTION_APPLICATION_DETAILS_SETTINGS,
         data = IntentData.PACKAGE_URI,
@@ -321,22 +337,19 @@ object IntentCandidates {
     )
 
     /**
-     * Live Updates: the notification settings page in API 36 has a promotion section.
+     * Live Updates: the promotion page on API 36, then the app's notification page, then app info.
      *
-     * There is no public intent that opens "promoted notifications" alone, so the app's notification
-     * page is the honest target; the wizard explains the toggle above it.
+     * `ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS` is the one screen that owns the toggle; on a
+     * build without it the notification page still shows the same channel list, one tap away.
      */
     private fun liveUpdatesChain(): List<IntentCandidate> = listOf(
         IntentCandidate(
-            action = ACTION_APP_NOTIFICATION_SETTINGS,
+            action = ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS,
             extras = mapOf(EXTRA_APP_PACKAGE to IntentExtra.PackageName),
         ),
         IntentCandidate(
-            action = ACTION_CHANNEL_NOTIFICATION_SETTINGS,
-            extras = mapOf(
-                EXTRA_APP_PACKAGE to IntentExtra.PackageName,
-                EXTRA_CHANNEL_ID to IntentExtra.Literal(CHANNEL_GUARD_STATUS),
-            ),
+            action = ACTION_APP_NOTIFICATION_SETTINGS,
+            extras = mapOf(EXTRA_APP_PACKAGE to IntentExtra.PackageName),
         ),
         appInfo,
     )

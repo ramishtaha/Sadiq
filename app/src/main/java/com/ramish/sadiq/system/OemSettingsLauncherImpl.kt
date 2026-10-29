@@ -59,20 +59,30 @@ class OemSettingsLauncherImpl @Inject constructor(
         if (candidate.data == IntentData.PACKAGE_URI) {
             intent.data = Uri.fromParts("package", context.packageName, null)
         }
-        candidate.extras.forEach { (name, value) -> intent.putExtra(name, valueFor(value)) }
+        candidate.extras.forEach { (name, extra) -> putExtra(intent, name, extra) }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return intent
     }
 
-    /** Resolves one extra to the value the target activity expects. */
-    private fun valueFor(extra: IntentExtra): Any = when (extra) {
-        IntentExtra.PackageName -> context.packageName
-        IntentExtra.PackageLabel -> appLabel
-        IntentExtra.PackageUid -> Process.myUid()
-        IntentExtra.SelfAccessibilityComponent ->
-            ComponentName(context.packageName, IntentCandidates.ACCESSIBILITY_SERVICE_CLASS)
+    /**
+     * Resolves one extra into the type the target activity expects.
+     *
+     * The `when` is not just a lookup: each branch picks the `Intent.putExtra` overload that matches
+     * the value's real type, so the component extra arrives as a `ComponentName` and the uid as an
+     * int rather than as a string the activity would silently ignore.
+     */
+    private fun putExtra(intent: Intent, name: String, extra: IntentExtra) {
+        when (extra) {
+            IntentExtra.PackageName -> intent.putExtra(name, context.packageName)
+            IntentExtra.PackageLabel -> intent.putExtra(name, appLabel)
+            IntentExtra.PackageUid -> intent.putExtra(name, Process.myUid())
+            IntentExtra.SelfAccessibilityComponent -> intent.putExtra(
+                name,
+                ComponentName(context.packageName, IntentCandidates.ACCESSIBILITY_SERVICE_CLASS),
+            )
 
-        is IntentExtra.Literal -> extra.value
+            is IntentExtra.Literal -> intent.putExtra(name, extra.value)
+        }
     }
 
     /**

@@ -31,21 +31,27 @@ class SystemClockSource @Inject constructor(
     override fun now(): TimeSnapshot = TimeSnapshot(
         wallMs = ClockOffset.applyTo(System.currentTimeMillis()),
         elapsedMs = SystemClock.elapsedRealtime(),
-        bootCount = bootCount(),
+        bootCount = bootCount,
         zoneId = TimeZone.getDefault().id,
     )
 
     /**
      * `Settings.Global.BOOT_COUNT` since the device booted.
      *
+     * Read once and cached: the counter cannot change without a reboot, and a reboot kills this
+     * process, so the cached value is always the one the current `elapsedRealtime` readings belong
+     * to. Caching keeps the engine's per-input clock read off the content resolver.
+     *
      * A missing or unreadable counter is reported as zero rather than as null: the engine only
      * compares two readings, so a ROM that hides the setting still gets a consistent answer, and a
      * constant zero simply means "never treated as a reboot".
      */
-    private fun bootCount(): Int = try {
-        Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, 0)
-    } catch (_: SecurityException) {
-        // Some vendor ROMs refuse the read to a plain app; a stable zero keeps accounting honest.
-        0
+    private val bootCount: Int by lazy {
+        try {
+            Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, 0)
+        } catch (_: SecurityException) {
+            // Some vendor ROMs refuse the read to a plain app; a stable zero keeps accounting honest.
+            0
+        }
     }
 }

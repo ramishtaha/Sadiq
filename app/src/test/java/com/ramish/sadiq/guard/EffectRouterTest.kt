@@ -1,14 +1,15 @@
 package com.ramish.sadiq.guard
 
+import android.app.Notification
 import com.ramish.sadiq.contract.GuardController
 import com.ramish.sadiq.contract.HomeAction
+import com.ramish.sadiq.contract.LiveNotifier
 import com.ramish.sadiq.contract.MediaDucker
+import com.ramish.sadiq.contract.SoundController
 import com.ramish.sadiq.contract.SurfacePresenter
 import com.ramish.sadiq.core.economy.StarAward
 import com.ramish.sadiq.core.economy.StarKind
 import com.ramish.sadiq.core.engine.Effect
-import com.ramish.sadiq.core.engine.GrantEnd
-import com.ramish.sadiq.core.engine.Grant
 import com.ramish.sadiq.core.engine.GrantKind
 import com.ramish.sadiq.core.engine.InterceptUi
 import com.ramish.sadiq.core.engine.LiveState
@@ -17,16 +18,17 @@ import com.ramish.sadiq.core.engine.SurfaceKind
 import com.ramish.sadiq.core.model.Mode
 import com.ramish.sadiq.core.model.WindowKind
 import com.ramish.sadiq.core.sound.SoundKind
+import com.ramish.sadiq.core.time.TimeSnapshot
 import com.ramish.sadiq.testing.FakeClock
 import com.ramish.sadiq.testing.FakeGuardController
 import com.ramish.sadiq.testing.FakeHistoryRepository
-import com.ramish.sadiq.testing.FakeLiveNotifier
-import com.ramish.sadiq.testing.FakeSoundController
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -57,12 +59,12 @@ class EffectRouterTest {
         for (effect in effects) {
             val rig = Rig(backgroundScope)
             rig.router.dispatch(effect)
-            assertEquals(1, rig.calls(), "$effect should touch one collaborator, touched ${rig.calls()}")
+            assertEquals(1, rig.calls(), "$effect touched ${rig.calls()} collaborators")
         }
     }
 
     @Test
-    fun showAndUpdateAndDismissAllGoToThePresenter() = runTest {
+    fun showUpdateAndDismissAllGoToThePresenter() = runTest {
         val rig = Rig(backgroundScope)
         val pause = testUi()
         val reflect = testUi(SurfaceKind.REFLECT)
@@ -95,9 +97,8 @@ class EffectRouterTest {
 
         rig.router.dispatch(Effect.Live(state))
 
-        assertEquals(listOf(state), rig.live.shown)
-        assertEquals(1, rig.live.clockReadings.size)
-        assertSame(rig.clock`current`, rig.live.clockReadings.single())
+        assertEquals(listOf<LiveState>(state), rig.live.shown)
+        assertSame(rig.clock.current, rig.live.clockReadings.single())
     }
 
     @Test
@@ -107,7 +108,7 @@ class EffectRouterTest {
         rig.router.dispatch(Effect.PlaySound(SoundKind.NIGHT_PAD, null))
         rig.router.dispatch(Effect.StopSound)
 
-        assertEquals(listOf(SoundKind.NIGHT_PAD to null), rig.sound.played)
+        assertEquals(listOf<Pair<SoundKind, Long?>>(SoundKind.NIGHT_PAD to null), rig.sound.played)
         assertEquals(1, rig.sound.stopCount)
     }
 
@@ -119,7 +120,7 @@ class EffectRouterTest {
         rig.router.dispatch(Effect.Record(event))
 
         assertEquals(listOf<RecordEvent>(event), rig.history.events)
-        assertEquals(0, rig.live.completed.size)
+        assertTrue(rig.live.completed.isEmpty())
     }
 
     @Test
@@ -155,8 +156,8 @@ class EffectRouterTest {
         val history = FakeHistoryRepository()
 
         /**
-         * The real [Recorder] over a fake history: the recorder is a class, and its only dependency
-         * is the repository, so testing it here also proves the router writes through it rather than
+         * The real [Recorder] over a fake history: the recorder is a class whose only dependency is
+         * the repository, so testing it here also proves the router writes through it rather than
          * around it.
          */
         val router = EffectRouter(
@@ -228,9 +229,9 @@ class EffectRouterTest {
     }
 
     /** Records every call together with the clock reading it was handed. */
-    private class RecordingLive : com.ramish.sadiq.contract.LiveNotifier {
+    private class RecordingLive : LiveNotifier {
         val shown = mutableListOf<LiveState>()
-        val clockReadings = mutableListOf<com.ramish.sadiq.core.time.TimeSnapshot>()
+        val clockReadings = mutableListOf<TimeSnapshot>()
         val completed = mutableListOf<Int>()
         var keepAlives = 0
             private set
@@ -238,14 +239,14 @@ class EffectRouterTest {
             private set
         val calls: Int get() = shown.size + completed.size + keepAlives + asleepCount
 
-        override fun show(state: LiveState, now: com.ramish.sadiq.core.time.TimeSnapshot) {
+        override fun show(state: LiveState, now: TimeSnapshot) {
             shown += state
             clockReadings += now
         }
 
-        override fun keepAlive(): android.app.Notification {
+        override fun keepAlive(): Notification {
             keepAlives += 1
-            return android.app.Notification()
+            return Notification()
         }
 
         override fun focusComplete(stars: Int) {
@@ -257,14 +258,13 @@ class EffectRouterTest {
         }
     }
 
-    private class RecordingSound : com.ramish.sadiq.contract.SoundController {
+    private class RecordingSound : SoundController {
         val played = mutableListOf<Pair<SoundKind, Long?>>()
         var stopCount = 0
             private set
         val calls: Int get() = played.size + stopCount
 
-        override val playing: kotlinx.coroutines.flow.StateFlow<SoundKind> =
-            kotlinx.coroutines.flow.MutableStateFlow(SoundKind.NONE)
+        override val playing: StateFlow<SoundKind> = MutableStateFlow(SoundKind.NONE)
 
         override fun play(kind: SoundKind, durationMs: Long?) {
             played += kind to durationMs

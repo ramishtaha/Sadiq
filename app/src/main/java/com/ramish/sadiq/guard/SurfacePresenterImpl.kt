@@ -26,10 +26,11 @@ interface InterceptLauncher {
     /**
      * Start `InterceptActivity`.
      *
-     * @return true when the OS accepted the launch, false when it was silently refused (which is
-     *   the HyperOS background-popup case the overlay exists for).
+     * A refusal is logged inside the launcher rather than returned: the presenter has nothing
+     * different to do about it, because the 600 ms visibility check is what turns any failure —
+     * a thrown `SecurityException` or HyperOS dropping the launch silently — into the overlay.
      */
-    fun launch(): Boolean
+    fun launch()
 }
 
 /**
@@ -46,7 +47,7 @@ class ContextInterceptLauncher @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : InterceptLauncher {
 
-    override fun launch(): Boolean {
+    override fun launch() {
         val from = handle.serviceContext() ?: context
         val intent = Intent()
             .setClassName(from.packageName, ACTIVITY)
@@ -55,17 +56,14 @@ class ContextInterceptLauncher @Inject constructor(
                     Intent.FLAG_ACTIVITY_NO_ANIMATION or
                     Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
             )
-        return try {
+        try {
             from.startActivity(intent)
-            true
         } catch (missing: ActivityNotFoundException) {
             Log.w(TAG, "intercept activity not found: ${missing.message}")
-            false
         } catch (denied: SecurityException) {
             // HyperOS refuses background activity starts unless "display pop-up windows" is allowed.
             // The 600 ms check in the presenter turns that into the overlay fallback.
             Log.w(TAG, "intercept activity refused: ${denied.message}")
-            false
         }
     }
 
@@ -104,6 +102,11 @@ class SurfacePresenterImpl @Inject constructor(
     override fun show(ui: InterceptUi) {
         fallbackJob?.cancel()
         holder.show(ui)
+
+        // When the overlay already holds the screen it re-renders the new question itself; starting
+        // the activity on top of it would only make the two hosts race for the same surface.
+        if (holder.overlayRequested.value) return
+
         launcher.launch()
         fallbackJob = scope.launch {
             delay(OVERLAY_FALLBACK_MS)

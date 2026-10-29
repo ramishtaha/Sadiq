@@ -151,8 +151,9 @@ class AppCatalogTest {
         assertEquals(
             listOf(
                 "com.instagram.android",
-                "com.reddit.frontpage",
+                // X is third in the table, Reddit fourth: the picker follows the plan's order.
                 "com.twitter.android",
+                "com.reddit.frontpage",
                 "com.example.zeta",
                 "com.example.alpha",
             ),

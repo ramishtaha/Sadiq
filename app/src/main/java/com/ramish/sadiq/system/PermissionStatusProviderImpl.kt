@@ -6,6 +6,7 @@ import android.app.AppOpsManager
 import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.PowerManager
 import android.os.Process
@@ -175,7 +176,7 @@ class PermissionStatusProviderImpl @Inject constructor(
     }
 
     /** Matches Sadiq's service by package and class, tolerating a manifest-relative class name. */
-    private fun isOurService(service: android.content.pm.ServiceInfo?): Boolean {
+    private fun isOurService(service: ServiceInfo?): Boolean {
         if (service == null || service.packageName != context.packageName) return false
         val name: String = service.name ?: return false
         return name == IntentCandidates.ACCESSIBILITY_SERVICE_CLASS ||

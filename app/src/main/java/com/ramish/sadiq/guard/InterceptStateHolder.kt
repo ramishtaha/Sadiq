@@ -57,16 +57,18 @@ class InterceptStateHolder @Inject constructor(
     fun isVisible(): Boolean = visible
 
     /**
-     * Publish a new surface and start its visibility clock.
+     * Publish a new surface and restart its visibility clock.
      *
-     * Any overlay request from a previous question is dropped: a new prompt gets its own 600 ms.
+     * A question that arrives while a host is already showing one keeps that host: the overlay or
+     * activity re-renders from the new value, so the pending overlay request (if any) is left alone
+     * and the surface does not flicker through a remove-and-re-add. When nothing is visible, the
+     * question starts with no overlay request and has to prove itself again.
      *
      * @param ui the surface to render.
      */
     fun show(ui: InterceptUi) {
         shownAtElapsedMs = clock.now().elapsedMs
-        visible = false
-        mutableOverlayRequested.value = false
+        if (!visible) mutableOverlayRequested.value = false
         mutableUi.value = ui
     }
 
@@ -96,7 +98,9 @@ class InterceptStateHolder @Inject constructor(
 
         val latencyMs = (clock.now().elapsedMs - shownAt).coerceAtLeast(0L)
         mutableLastLatencyMs.value = latencyMs
-        if (!viaOverlay) mutableOverlayRequested.value = false
+        // The flow is the app's answer to "which host owns the surface", so a reporting host sets
+        // it: the overlay keeps its window, and an activity that won the race cancels the request.
+        mutableOverlayRequested.value = viaOverlay
 
         // §3.6: the one line that answers "how long did the pause take to appear".
         Log.i(TAG, "eventToVisible=${latencyMs}ms via=${if (viaOverlay) "overlay" else "activity"}")

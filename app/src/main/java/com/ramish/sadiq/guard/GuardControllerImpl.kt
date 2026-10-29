@@ -65,7 +65,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 class GuardControllerImpl @Inject constructor(
     private val reducer: GuardReducer,
     private val clock: Clock,
-    private val context: ContextAssembler,
+    private val assembler: ContextAssembler,
     private val settings: SettingsRepository,
     private val snapshots: EngineSnapshotStore,
     private val usage: UsageHistorySource,
@@ -163,7 +163,7 @@ class GuardControllerImpl @Inject constructor(
     private suspend fun startUp() {
         val now = clock.now()
         val saved = snapshots.load()
-        val ctx = context.assemble(
+        val ctx = assembler.assemble(
             now = now,
             config = settings.config.value,
             lastSeenWall = saved?.lastSeenWall ?: now.wallMs,
@@ -206,7 +206,7 @@ class GuardControllerImpl @Inject constructor(
     private suspend fun process(input: GuardInput) {
         val before = mutableState.value
         val now = clock.now()
-        val ctx = context.assemble(now, settings.config.value, before.lastSeenWall)
+        val ctx = assembler.assemble(now, settings.config.value, before.lastSeenWall)
         val transition = reducer.reduce(state = before, input = input, now = now, ctx = ctx)
 
         // State first, effects second. The contract promises this order so a screen that reacts to
@@ -223,7 +223,7 @@ class GuardControllerImpl @Inject constructor(
     /** Replace the state with the fresh-install one, save it and drop any timer. */
     private suspend fun resetToInitial() {
         val now = clock.now()
-        val ctx = context.assemble(now, settings.config.value, now.wallMs)
+        val ctx = assembler.assemble(now, settings.config.value, now.wallMs)
         val fresh = reducer.initial(now, ctx)
         mutableState.value = fresh
         requestSave(fresh, immediate = true)
