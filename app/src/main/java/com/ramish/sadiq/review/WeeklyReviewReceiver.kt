@@ -67,7 +67,10 @@ class WeeklyReviewReceiver : BroadcastReceiver() {
             WeekCoverage.comparisonDays(today),
             settings.config.value,
         )
-        if (!WeekCoverage.isWeekReady(input)) return
+        // Approximate weeks are Sadiq's own records, not usage stats. Posting a time total from them
+        // would be the "you used X minutes" announcement §4.6 forbids, so the note waits for a week
+        // that is measured. (AUDIT-4 A4-16.)
+        if (!WeekCoverage.isWeekReady(input) || input.approximate) return
 
         val review: WeeklyReview = entry.weeklyReviewBuilder().build(input)
         post(context, review)
@@ -87,9 +90,8 @@ class WeeklyReviewReceiver : BroadcastReceiver() {
             .setCategory(Notification.CATEGORY_STATUS)
             .setAutoCancel(true)
             .setContentTitle(context.getString(R.string.week_notify_title))
-            .setContentText(
-                context.getString(R.string.week_notify_text, WeekFormat.duration(review.totalMs))
-            )
+            // No duration: the note is an invitation, not a usage report (§4.6, A4-16).
+            .setContentText(context.getString(R.string.week_notify_text))
             .setContentIntent(openSadiq(context))
             .build()
 

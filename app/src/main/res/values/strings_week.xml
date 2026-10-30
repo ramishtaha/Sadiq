@@ -66,5 +66,5 @@
 
     <!-- The Sunday attention notification (§4.6). -->
     <string name="week_notify_title">Your week</string>
-    <string name="week_notify_text">%1$s in guarded apps. Tap to see your week.</string>
+    <string name="week_notify_text">Your week is ready. Tap to see it.</string>
 </resources>

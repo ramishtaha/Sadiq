@@ -117,9 +117,11 @@ fun WeekContent(
             ) {
                 if (state.approximate) {
                     ApproximateNote(onTurnOnUsageAccess = onTurnOnUsageAccess)
+                } else {
+                    // The headline is a measured total. When the numbers are engine records it would
+                    // be a guess dressed as a measurement, so it is withheld (§4.6, A4-16).
+                    HeadlineCard(state = state)
                 }
-
-                HeadlineCard(state = state)
                 WhereItWentCard(state = state)
                 ChoicesCard(state = state)
                 WhatYouSaidCard(state = state, onApplySuggestion = onApplySuggestion)
