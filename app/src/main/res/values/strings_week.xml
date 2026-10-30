@@ -18,6 +18,8 @@
     <!-- Card 2: where it went. -->
     <string name="week_section_where">Where it went</string>
     <string name="week_no_apps">No guarded app time was recorded this week.</string>
+    <!-- Shown only when the week is approximate: Sadiq's own records cover the question, not the apps. -->
+    <string name="week_no_usage">Sadiq can\'t see app time without usage access.</string>
     <string name="week_peak_band">Most of it between %1$s and %2$s.</string>
 
     <!-- Card 3: your choices. -->

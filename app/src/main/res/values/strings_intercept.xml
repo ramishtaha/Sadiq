@@ -135,7 +135,7 @@
     <string name="prayer_isha">Isha</string>
 
     <string name="intercept_leave_button">No, take me home</string>
-    <string name="intercept_leave_button_description">Closes this app and takes you home.</string>
+    <string name="intercept_leave_button_description">Takes you home.</string>
     <string name="intercept_time_up_leave_button">Take me home</string>
     <string name="intercept_time_up_leave_button_description">Takes you home.</string>
     <string name="intercept_time_up_caption">The feeds rest for %1$d minutes after this.</string>
@@ -151,13 +151,13 @@
     <string name="intercept_cooldown_tertiary_button_free">Free scroll · %1$d min</string>
     <string name="intercept_free_scroll_chip">Free scroll · %1$d min</string>
     <string name="intercept_cooldown_primary_button_description">Takes you home.</string>
-    <string name="intercept_morning_secondary_button_description">Closes this app and takes you home.</string>
-    <string name="intercept_prayer_primary_button_description">Closes this app so you can pray.</string>
+    <string name="intercept_morning_secondary_button_description">Takes you home.</string>
+    <string name="intercept_prayer_primary_button_description">Takes you home so you can pray.</string>
     <string name="intercept_test_primary_button_description">Takes you home.</string>
     <string name="intercept_suggestion_water">Drink some water.</string>
     <string name="intercept_suggestion_window">Look out of the window for a minute.</string>
     <string name="intercept_suggestion_breathe">Take five slow breaths.</string>
     <string name="intercept_suggestion_one_thing">Pick one thing. Five minutes.</string>
-    <string name="intercept_suggestion_text_back">Reply to the message you have been avoiding.</string>
+    <string name="intercept_suggestion_text_back">Write one short reply.</string>
     <string name="intercept_suggestion_stretch">Stand up and stretch.</string>
 </resources>

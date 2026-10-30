@@ -175,8 +175,13 @@ private fun WhereItWentCard(state: WeekUiState) {
         SectionHeader(text = stringResource(R.string.week_section_where))
 
         if (state.topApps.isEmpty()) {
+            // Without usage access the bars are empty because Sadiq cannot see them, not because there
+            // was no time. Saying "no time was recorded" would be false on the tab that promises
+            // exactness (AUDIT-5 A5-06).
             Text(
-                text = stringResource(R.string.week_no_apps),
+                text = stringResource(
+                    if (state.approximate) R.string.week_no_usage else R.string.week_no_apps
+                ),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -185,8 +190,9 @@ private fun WhereItWentCard(state: WeekUiState) {
         }
 
         // Only when the hour profile had something in it: the builder returns null rather than a
-        // guess, and a made-up band would be the one line on this screen that is not true.
-        state.peakStartHour?.let { startHour ->
+        // guess, and a made-up band would be the one line on this screen that is not true. An
+        // approximate week has no measured band either (A5-06).
+        if (!state.approximate) state.peakStartHour?.let { startHour ->
             Spacer(Modifier.height(Spacing.md))
             Text(
                 text = stringResource(
