@@ -49,7 +49,11 @@ android {
             }
         }
         release {
-            isMinifyEnabled = false
+            // The debug APK ships every icon vector and no shrinking (74 MB). The release build is
+            // what actually gets installed: R8 strips the unused material-icons-extended classes and
+            // resource shrinking drops the unused resources with them.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (sadiqDebugKeystoreFile?.isFile == true) {
                 signingConfig = signingConfigs.getByName("sharedDebug")

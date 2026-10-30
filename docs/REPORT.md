@@ -1,7 +1,7 @@
 # Sadiq — overnight build report
 
-_2026-10-30, 05:10 IST. Built from an Opus 5.5 plan, implemented by parallel agents, audited four times by Opus 5.5._
-_Build `b39e35b` · 692 unit tests · APK below._
+_2026-10-30, 06:10 IST. Built from an Opus 5.5 plan, implemented by parallel agents, audited four times by Opus 5.5._
+_Build `80d2609` · 728 unit tests · APK below._
 
 ## What it is
 
@@ -12,7 +12,7 @@ shames, and it knows your prayer times.
 
 ## Install it
 
-`https://learn.ramishtaha.tech/sadiq-b39e35b.apk` (73.4 MB, debug-signed). The older bare
+`https://learn.ramishtaha.tech/sadiq-80d2609.apk` (73.9 MB, debug-signed). The older bare
 `…/sadiq-debug.apk` is Cloudflare-cached to a 03:33 build — use the versioned link.
 
 ```bash
@@ -39,10 +39,10 @@ Emulator `rafiq_test` (Android 16 / SDK 36, x86_64) on the laptop, driven over a
 
 - **728 unit tests, 0 failures** (core engine + economy + schedule, data, FGS policy, picker and focus view-models,
   forbidden-word scan).
-- **4 Opus 5.5 audits.** AUDIT-4 (this cycle) found 3 P0 + a dozen P1 on the code that landed after AUDIT-3, including
-  the overlay crash it proved with the emulator's own log.
-- APK `b39e35b`, sha256 `497bfdedc73f5022…`, signed `CN=Sadiq Debug, O=Ramish`
-  (`DA:AA:E7:AB:…:A2:32:47:34`).
+- **4 Opus 5.5 audits.** AUDIT-4 found 3 P0 + a dozen P1 on the code that landed after AUDIT-3, including
+  the overlay crash it proved with the emulator's own log; its P1s were then fixed in three rounds (`6432c48`,
+  `b39e35b`, `ce86de6`, `80d2609`). A fifth pass was started at 06:10 for the close-out.
+- APK `80d2609`, sha256 `a9715042a64c7a61…`, 73,931,732 B, signed `CN=Sadiq Debug, O=Ramish`.
 
 ## Fixed tonight, in this build
 
@@ -63,6 +63,16 @@ Emulator `rafiq_test` (Android 16 / SDK 36, x86_64) on the laptop, driven over a
   an unreported binding reads false, and `onDestroy` reports itself.
 - **A focus ending while its own question is open** now rewrites that question instead of leaving "You're focusing" up
   with a dead button; `endFocus` keeps a running grant's countdown.
+- **A4-12** — a queued "Think it over" app-list change now carries the removals it meant, and is rebased onto the
+  current list when it lands, so an app he added while it waited is no longer silently un-guarded; a row with no
+  record merges instead of replacing.
+- **A4-15** — the wizard hides the tab bar, keeps both O5b flags in `UiPrefs` so a HyperOS kill mid-Settings does not
+  drop the step, renders the exact HyperOS menu paths, and gives O5 a way into O5b without Back.
+- **A4-16 (B-7)** — the Sunday note is now an invitation ("Your week is ready. Tap to see it.") with no usage total,
+  and is not posted at all for an approximate week; the Week screen withholds the measured headline when the numbers
+  come from Sadiq's own records.
+- **`check-no-network.sh` fails loudly** when aapt2 is missing or returns nothing — an empty permission dump used to
+  read as a pass. (The classpath backstop still never runs; see below.)
 - **Copy truth** — no screen claims a "backup layer" that is switched off.
 
 ## What is NOT done — read this before relying on it
@@ -75,20 +85,21 @@ Emulator `rafiq_test` (Android 16 / SDK 36, x86_64) on the laptop, driven over a
 2. **HyperOS is unverified.** Autostart, battery saver, "lock in Recents" and the MIUI pop-up permission are written
    from Xiaomi's documented menus; none has been tapped on the Poco F7. The onboarding now shows the pop-ups step unless
    it *knows* the permission is on (B-1), so you can see what to fix.
-3. **Still open in AUDIT-4:** A4-02…A4-07 (overlay behaviour), A4-12 (a queued "Think it over" change can re-apply a
-   stale app list), A4-15 (the wizard can drop you out during OEM settings), **B-7 / A4-16** (Week totals 0 without usage
-   access). Each has a concrete fix in `audits/AUDIT-4.md`.
-4. **Closed this cycle but code-only, not device-tested:** A4-10 ("Focus complete" only with the screen off and a star
-   lit), the stale FOCUS_GUARD surface after a focus ends, `endFocus` keeping a running grant's countdown, and A4-14
-   (accessibility "connected" reads false after a 10 s startup grace, and `onDestroy` reports itself).
+3. **Still open in AUDIT-4:** A4-02…A4-07 (overlay behaviour — home gesture, incoming call, Back, double-draw, latency),
+   the debug receiver's missing permission, the O9 fallback order, the health-row tones, the notifications runtime
+   request, and the dependency backstop in `check-no-network.sh` (it prints a loud WARN today because
+   `build/classpath-debug.txt` is never generated). Each has a concrete fix in `audits/AUDIT-4.md`.
+4. **Fixed code-only this cycle, not device-tested:** A4-12 (rebased queued app list), A4-15 (wizard tab bar, persisted
+   flags, OEM paths), A4-16 (Sunday copy + approximate headline), plus the earlier A4-10, the stale FOCUS_GUARD
+   surface, `endFocus`'s countdown, and A4-14.
 5. **Not tested on your phone.** The accessibility service, the shade, the star timing and everything above were proven
    on the emulator only.
 
 ## Where everything is
 
-- Code: `/root/saduq` (branch `main`, HEAD `b39e35b`)
+- Code: `/root/saduq` (branch `main`, HEAD `80d2609`)
 - Plan + voice: `/root/starpause-brain/plans/PLAN-v2.md`, `NAME-ADDENDUM-v1.md`
-- Audits: `/root/starpause-brain/audits/AUDIT-1.md` … `AUDIT-4.md`
+- Audits: `/root/starpause-brain/audits/AUDIT-1.md` … `AUDIT-4.md` (`AUDIT-5.md` if the close-out pass finished)
 - Runbook / cursor: `/root/starpause-brain/OVERNIGHT.md`, `STATE.md`
 - Screenshots: `/root/starpause-brain/shots/`
-- Delivery: `/root/starpause-brain/delivery/sadiq-debug.apk`, `sadiq-b39e35b.apk`
+- Delivery: `/root/starpause-brain/delivery/sadiq-80d2609.apk`
