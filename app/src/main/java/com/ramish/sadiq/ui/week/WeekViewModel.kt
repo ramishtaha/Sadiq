@@ -71,6 +71,8 @@ data class WeekUiState(
     val stars: Int = 0,
     val leaves: Int = 0,
     val quietNights: Int = 0,
+    /** "Open anyway" uses this week; shown only when it happened (A.7). */
+    val overrides: Int = 0,
     val focusMinutes: Int = 0,
     val topReason: ReflectionReason? = null,
     val suggestion: WeeklySuggestion? = null,
@@ -221,6 +223,7 @@ class WeekViewModel @Inject constructor(
             stars = review.stars,
             leaves = review.leaves,
             quietNights = review.quietNights,
+            overrides = review.overrides,
             focusMinutes = review.focusMinutes,
             topReason = review.topReason,
             suggestion = if (suggestionApplied) null else suggestion,

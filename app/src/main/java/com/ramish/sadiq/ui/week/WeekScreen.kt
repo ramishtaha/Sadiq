@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -257,6 +258,17 @@ private fun ChoicesCard(state: WeekUiState) {
                 WeekCoverage.DAYS_IN_WEEK,
             ),
         )
+        // Only when it happened: a zero is not a fact about him, and the sky never draws an absence.
+        if (state.overrides > 0) {
+            ChoiceRow(
+                label = stringResource(R.string.week_choice_overrides),
+                value = pluralStringResource(
+                    R.plurals.week_overrides_value,
+                    state.overrides,
+                    state.overrides,
+                ),
+            )
+        }
         ChoiceRow(
             label = stringResource(R.string.week_choice_focus),
             value = stringResource(R.string.week_value_minutes, state.focusMinutes),

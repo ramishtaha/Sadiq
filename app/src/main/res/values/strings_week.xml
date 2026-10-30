@@ -29,6 +29,7 @@
     <string name="week_choice_stars">Stars this week</string>
     <string name="week_choice_leaves">Times you left</string>
     <string name="week_choice_quiet_nights">Quiet nights</string>
+    <string name="week_choice_overrides">Opened anyway</string>
     <string name="week_quiet_nights_value">%1$d of %2$d</string>
     <string name="week_choice_focus">Focus minutes</string>
     <string name="week_value_minutes">%1$d min</string>
@@ -71,4 +72,8 @@
     <!-- The Sunday attention notification (§4.6). -->
     <string name="week_notify_title">Your week</string>
     <string name="week_notify_text">Your week is ready. Tap to see it.</string>
+    <plurals name="week_overrides_value">
+        <item quantity="one">%1$d time</item>
+        <item quantity="other">%1$d times</item>
+    </plurals>
 </resources>
