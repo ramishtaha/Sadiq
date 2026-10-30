@@ -387,7 +387,7 @@ private fun OverrideOpenActions(
 ) {
     val primary = copy.primaryChoice(ui)
     PrimaryActionButton(
-        text = copy.primaryButton(ui),
+        text = copy.overrideCancelButton(ui),
         onClick = { if (primary == Choice.Leave) onLeave() else onAnswer(primary) },
         leaveEarnsStar = ui.leaveEarnsStar && primary == Choice.Leave && ui.kind != SurfaceKind.TEST
     )

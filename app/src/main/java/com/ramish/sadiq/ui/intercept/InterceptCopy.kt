@@ -214,6 +214,19 @@ class InterceptCopy @Inject constructor(@ApplicationContext private val context:
     }
 
     /** The primary button's TalkBack description, or null when the label says it all. */
+    /**
+     * The confirm view's cancel, which is not always the surface's own primary.
+     *
+     * A.6 names the refusal on this screen — "No, take me home" (Bedtime keeps "Go to sleep") —
+     * because declining the door should read as declining it. The surface underneath keeps its own
+     * words; only this one screen states the answer.
+     */
+    fun overrideCancelButton(ui: InterceptUi): String = when (ui.kind) {
+        SurfaceKind.SLEEP_GATE -> context.getString(R.string.intercept_bedtime_primary_button)
+        SurfaceKind.TIME_UP -> context.getString(R.string.intercept_time_up_leave_button)
+        else -> context.getString(R.string.intercept_leave_button)
+    }
+
     fun primaryButtonDescription(ui: InterceptUi): String? = when (ui.kind) {
         SurfaceKind.PAUSE, SurfaceKind.REFLECT -> context.getString(R.string.intercept_leave_button_description)
         SurfaceKind.TIME_UP -> context.getString(R.string.intercept_time_up_leave_button_description)
