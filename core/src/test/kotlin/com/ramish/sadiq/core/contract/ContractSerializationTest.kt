@@ -1,6 +1,7 @@
 package com.ramish.sadiq.core.contract
 
 import com.ramish.sadiq.core.economy.EconomyRules
+import com.ramish.sadiq.core.engine.EngineRules
 import com.ramish.sadiq.core.engine.EngineState
 import com.ramish.sadiq.core.engine.Grant
 import com.ramish.sadiq.core.engine.GrantKind
@@ -317,5 +318,110 @@ class ContractSerializationTest {
         assertEquals(prompt, decodedPrompt)
         assertEquals(kindle, decodedKindle)
         assertEquals(EconomyRules.KINDLE_CONFIRM_MS, kindle.confirmAtElapsed - kindle.createdElapsed)
+    }
+
+    // ── OV-0: the "Open anyway" contract ─────────────────────────────────────────────────────────
+
+    /**
+     * The three fields the override contract adds to the snapshot — the grant kind, the arm reading
+     * on the prompt and the ledger count — survive the round trip, and are written under the names
+     * the engine and the history will read.
+     */
+    @Test
+    fun engineState_withOverrideFields_roundTripsThroughJson() {
+        val armedAt: Long = Fixtures.EVENING.elapsedMs + 12_000L
+        val state = Fixtures.state(
+            phase = Phase.PROMPTING,
+            foregroundPackage = Fixtures.INSTAGRAM.packageName,
+            foregroundGuarded = true,
+            prompt = Fixtures.prompt(
+                kind = SurfaceKind.SLEEP_GATE,
+                overrideArmedElapsed = armedAt
+            ),
+            grant = Fixtures.grant(
+                kind = GrantKind.OVERRIDE,
+                grantedMs = EngineRules.OVERRIDE_MS,
+                lastAccountedElapsed = Fixtures.EVENING.elapsedMs
+            ),
+            ledger = listOf(Fixtures.ledgerEntry(overrides = 1)),
+            economy = Fixtures.economyDay(overridesUsed = 1)
+        )
+
+        val text = json.encodeToString(EngineState.serializer(), state)
+        val decoded = json.decodeFromString(EngineState.serializer(), text)
+
+        assertEquals(state, decoded)
+        assertEquals(GrantKind.OVERRIDE, decoded.grant?.kind)
+        assertEquals(EngineRules.OVERRIDE_MS, decoded.grant?.grantedMs)
+        assertEquals(armedAt, decoded.prompt?.overrideArmedElapsed, "the arm reading survives a process death")
+        assertEquals(1, decoded.ledger.single().overrides)
+        assertEquals(1, decoded.economy.overridesUsed)
+        assertTrue(text.contains("\"kind\":\"OVERRIDE\""), text)
+        assertTrue(text.contains("\"overrideArmedElapsed\":$armedAt"), text)
+        assertTrue(text.contains("\"overrides\":1"), text)
+        assertTrue(text.contains("\"overridesUsed\":1"), text)
+        assertEquals(1, decoded.schema, "the override contract does not bump the snapshot schema")
+    }
+
+    /**
+     * A snapshot captured from `3be730d`, before any of the override fields existed. It must still
+     * decode — with the new fields at their defaults — because a phone that updates overnight wakes
+     * up with yesterday's document in DataStore.
+     */
+    @Test
+    fun engineState_capturedBeforeTheOverrideContract_decodesWithDefaults() {
+        val decoded = json.decodeFromString(EngineState.serializer(), SNAPSHOT_3BE730D)
+
+        assertEquals(1, decoded.schema)
+        assertEquals(Phase.PROMPTING, decoded.phase)
+        assertEquals(SurfaceKind.COOLDOWN, decoded.prompt?.kind)
+        assertEquals(ReflectionReason.BORED, decoded.prompt?.reflectReason)
+        assertNull(decoded.prompt?.overrideArmedElapsed, "an older snapshot has nothing armed")
+        assertEquals(GrantKind.QUICK, decoded.grant?.kind)
+        assertEquals(1, decoded.ledger.size)
+        assertEquals(0, decoded.ledger.single().overrides, "an older snapshot counts no overrides")
+        assertEquals(1, decoded.ledger.single().quickNeeds)
+        assertEquals(0, decoded.economy.overridesUsed, "an older snapshot has spent none of the day's cap")
+        assertEquals(1, decoded.economy.quickNeedsUsed)
+        assertEquals(Fixtures.EVENING.wallMs, decoded.lastSeenWall)
+        assertEquals(4L, decoded.seq, "the rest of the document is read as it was written")
+
+        // …and the document it writes next carries the new fields explicitly, at their defaults.
+        val rewritten = json.encodeToString(EngineState.serializer(), decoded)
+        assertTrue(rewritten.contains("\"overrideArmedElapsed\":null"), rewritten)
+        assertTrue(rewritten.contains("\"overrides\":0"), rewritten)
+        assertTrue(rewritten.contains("\"overridesUsed\":0"), rewritten)
+        assertEquals(decoded, json.decodeFromString(EngineState.serializer(), rewritten))
+    }
+
+    /**
+     * Every field the contract adds is inert by default, so every call site that predates "Open
+     * anyway" keeps its meaning: no door, no wait, no arm, nothing spent.
+     */
+    @Test
+    fun overrideContract_newFieldsDefaultToInert() {
+        val prompt = Fixtures.prompt()
+        val ledger = Fixtures.ledgerEntry()
+        val day = Fixtures.economyDay()
+        val ui = Fixtures.ui()
+
+        assertNull(prompt.overrideArmedElapsed)
+        assertEquals(0, ledger.overrides)
+        assertEquals(0, day.overridesUsed)
+        assertNull(ui.overrideLeft, "null means the door is not offered")
+        assertNull(ui.overrideWaitMs)
+        assertNull(ui.overrideArmedElapsed, "null means the confirm view is not showing")
+        assertNull(ui.overrideStarsAtStake)
+        assertNull(ui.overrideBackAtWall, "null means no cap is spent")
+    }
+
+    private companion object {
+        /**
+         * Written by the engine at commit `3be730d` — the snapshot `Fixtures.state(...)` with a
+         * COOLDOWN prompt, a QUICK grant, a rest, one kindle and one sleep-gate ledger entry.
+         * Verbatim; do not regenerate it from the current model or it stops being a migration test.
+         */
+        const val SNAPSHOT_3BE730D: String =
+            """{"schema":1,"phase":"PROMPTING","foregroundPackage":"com.instagram.android","foregroundGuarded":true,"screenOn":true,"prompt":{"kind":"COOLDOWN","packageName":"com.instagram.android","domain":null,"shownWall":1793288400000,"reflectReason":"BORED","testMode":false,"returnRoute":null},"grant":{"id":"g1","kind":"QUICK","grantedMs":60000,"consumedMs":30000,"startedWall":1793288400000,"lastAccountedElapsed":26082630000,"heldSinceElapsed":null,"pausedSinceElapsed":null,"windowAtStart":"NONE","firstPackage":"com.instagram.android"},"budget":{"remainingMs":600000,"lastGuardedUseElapsed":null},"rest":{"remainingMs":1800000,"lastAccountedElapsed":26082600000},"focus":null,"kindles":[{"id":"k1","leave":"LEFT_PROMPT","createdElapsed":26082600000,"confirmAtElapsed":26082780000,"sourcePackage":"com.instagram.android","window":"NONE"}],"recentOpensWall":[1793288340000,1793288400000],"lastReflectWall":1793284800000,"ledger":[{"kind":"SLEEP_GATE","startWall":1793206800000,"grants":0,"quickNeeds":1,"reconciledUsage":false}],"economy":{"logicalDay":20755,"litLeave":1,"litFocus":0,"litTotal":1,"lastLeaveLitWall":1793281200000,"freeUsedMs":300000,"quickNeedsUsed":1},"testArm":null,"bootCount":1,"seq":4,"lastSeenWall":1793288400000,"lastSeenElapsed":26082600000}"""
     }
 }

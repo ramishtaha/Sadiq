@@ -48,6 +48,7 @@ enum class NoStarReason {
  * @property lastLeaveLitWall wall time of the last lit leave-type star, the rate-limit reference.
  * @property freeUsedMs free scroll already spent today; the balance is litTotal minutes minus this.
  * @property quickNeedsUsed quick minutes already taken today.
+ * @property overridesUsed "Open anyway" grants taken today, against [com.ramish.sadiq.core.engine.EngineRules.OVERRIDE_DAY_CAP].
  */
 @Serializable
 data class EconomyDay(
@@ -57,7 +58,8 @@ data class EconomyDay(
     val litTotal: Int = 0,
     val lastLeaveLitWall: Long? = null,
     val freeUsedMs: Long = 0,
-    val quickNeedsUsed: Int = 0
+    val quickNeedsUsed: Int = 0,
+    val overridesUsed: Int = 0
 )
 
 /**

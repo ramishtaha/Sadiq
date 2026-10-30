@@ -144,7 +144,10 @@ enum class OpenOutcome {
     QUICK_NEED,
     FOCUS_STARTED,
     WIND_DOWN,
-    DISMISSED
+    DISMISSED,
+
+    /** The user opened guarded time through "Open anyway" (§A.9, T37). Never earns a star. */
+    OVERRIDE
 }
 
 /**

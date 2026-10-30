@@ -37,6 +37,12 @@ import com.ramish.sadiq.core.model.PrayerName
  * @property forceDark whether the surface must render dark regardless of the theme setting.
  * @property testMode whether this is a self-test.
  * @property mode the mode in force, for the surface's budget line.
+ * @property overrideLeft "Open anyway" uses left today; null means the door is not offered (§A.1).
+ * @property overrideWaitMs how long the door asks the user to wait before the hold (§A.2).
+ * @property overrideArmedElapsed elapsed reading when the door was armed; non-null means the confirm
+ *   view is showing (§A.2).
+ * @property overrideStarsAtStake window stars the door would cost (3, 2 or null), stated before he holds.
+ * @property overrideBackAtWall when the door comes back after a spent cap; non-null means it is spent.
  */
 data class InterceptUi(
     val kind: SurfaceKind,
@@ -63,5 +69,10 @@ data class InterceptUi(
     val leaveEarnsStar: Boolean,
     val forceDark: Boolean,
     val testMode: Boolean,
-    val mode: Mode
+    val mode: Mode,
+    val overrideLeft: Int? = null,
+    val overrideWaitMs: Long? = null,
+    val overrideArmedElapsed: Long? = null,
+    val overrideStarsAtStake: Int? = null,
+    val overrideBackAtWall: Long? = null
 )

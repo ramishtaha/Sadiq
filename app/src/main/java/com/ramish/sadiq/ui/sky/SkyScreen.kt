@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,12 +58,17 @@ import java.time.ZoneId
 fun SkyScreen(nav: NavController, viewModel: SkyViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    if (state.needsOnboarding) {
-        nav.navigate(Routes.ONBOARDING) {
-            popUpTo(Routes.SKY) { inclusive = true }
+    // A one-shot effect, not a call from the composable body: the old version navigated on every
+    // recomposition while the question was up (OB-2).
+    LaunchedEffect(state.needsOnboarding) {
+        if (state.needsOnboarding) {
+            nav.navigate(Routes.ONBOARDING) {
+                popUpTo(Routes.SKY) { inclusive = true }
+                launchSingleTop = true
+            }
         }
-        return
     }
+    if (state.needsOnboarding) return
 
     Column(
         modifier = Modifier.fillMaxSize(),

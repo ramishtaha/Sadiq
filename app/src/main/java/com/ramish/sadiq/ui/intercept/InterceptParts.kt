@@ -178,7 +178,9 @@ fun ReflectCard(
             Spacer(Modifier.height(Spacing.md))
             // The REFLECT UI shows chips for reflection reasons.
             ChoiceChips(
-                options = ReflectionReason.values().toList(),
+                // The check-in chips, not every reason: "I need it for something" belongs to the
+                // "Open anyway" confirm view, never to the question's six answers.
+                options = ReflectionReason.CHECK_IN,
                 selected = ui.reflectReason,
                 onSelect = onReasonSelected,
                 label = { reason -> context.getString(copy.reflectionChipLabelRes(reason)) }

@@ -46,7 +46,8 @@ class DefaultNextActionSuggester : NextActionSuggester {
 
     override fun suggest(ctx: SuggestionContext): Suggestion {
         val reason: ReflectionReason? = ctx.reason
-        if (reason != null) return forReason(reason, ctx.window.kind)
+        // A null line (NEED) falls through to the window lines rather than showing an empty answer.
+        if (reason != null) forReason(reason, ctx.window.kind)?.let { return it }
 
         if (ctx.window.kind == WindowKind.PRAYER) {
             val prayer = ctx.window.prayer
@@ -63,7 +64,7 @@ class DefaultNextActionSuggester : NextActionSuggester {
     }
 
     /** The response line for the chip he tapped on the REFLECT card (§4.4). */
-    private fun forReason(reason: ReflectionReason, window: WindowKind): Suggestion = when (reason) {
+    private fun forReason(reason: ReflectionReason, window: WindowKind): Suggestion? = when (reason) {
         ReflectionReason.BORED -> Suggestion(key = SuggestionKey.REFLECT_BORED)
         ReflectionReason.TIRED -> Suggestion(
             key = SuggestionKey.REFLECT_TIRED,
@@ -77,6 +78,9 @@ class DefaultNextActionSuggester : NextActionSuggester {
         ReflectionReason.LONELY -> Suggestion(key = SuggestionKey.REFLECT_LONELY)
         ReflectionReason.ANXIOUS -> Suggestion(key = SuggestionKey.REFLECT_ANXIOUS)
         ReflectionReason.HABIT -> Suggestion(key = SuggestionKey.REFLECT_HABIT)
+        // "I need it" is the override's reason, not a check-in answer: there is no response line to
+        // give, and the confirm view already states the cost. Silence is the honest reply (OV-2).
+        ReflectionReason.NEED -> null
     }
 
     /**

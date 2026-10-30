@@ -138,6 +138,9 @@
     <string name="intercept_leave_button">No, take me home</string>
     <string name="intercept_leave_button_description">Takes you home.</string>
     <string name="intercept_time_up_leave_button">Take me home</string>
+    <string name="intercept_time_up_override_headline">That\'s the 10 minutes.</string>
+    <string name="intercept_reflect_chip_need">I need it for something</string>
+    <string name="intercept_reflect_response_need">Then it\'s yours to open.</string>
     <string name="intercept_time_up_leave_button_description">Takes you home.</string>
     <string name="intercept_time_up_caption">The feeds rest for %1$d minutes after this.</string>
     <string name="intercept_pause_caption">%1$s · %2$d min before rest</string>

@@ -2,6 +2,7 @@ package com.ramish.sadiq.core.contract
 
 import com.ramish.sadiq.core.economy.EconomyRules
 import com.ramish.sadiq.core.engine.EngineRules
+import com.ramish.sadiq.core.insight.ReflectionReason
 import com.ramish.sadiq.core.model.GuardConfig
 import com.ramish.sadiq.core.model.Mode
 import com.ramish.sadiq.core.testing.Fixtures
@@ -39,6 +40,34 @@ class RulesConstantsTest {
         assertEquals(listOf(5, 10), EngineRules.FREE_CHIPS_MIN)
         assertEquals(600L, EngineRules.OVERLAY_FALLBACK_MS)
         assertEquals(60_000L, EngineRules.SELF_TEST_ARM_MS)
+        // "Open anyway": ten minutes, twice a day, once a night, after a wait that is longer at Bedtime.
+        assertEquals(600_000L, EngineRules.OVERRIDE_MS)
+        assertEquals(2, EngineRules.OVERRIDE_DAY_CAP)
+        assertEquals(1, EngineRules.OVERRIDE_NIGHT_CAP)
+        assertEquals(30_000L, EngineRules.OVERRIDE_WAIT_MS)
+        assertEquals(60_000L, EngineRules.OVERRIDE_WAIT_NIGHT_MS)
+    }
+
+    /**
+     * OV-0: [ReflectionReason.NEED] joins last so the six check-in answers keep the order — and
+     * therefore the weekly tie-break — they had before "Open anyway" existed.
+     */
+    @Test
+    fun reflectionReasonCheckIn_keepsTheSixOriginalAnswers() {
+        assertEquals(
+            listOf(
+                ReflectionReason.BORED,
+                ReflectionReason.TIRED,
+                ReflectionReason.AVOIDING,
+                ReflectionReason.LONELY,
+                ReflectionReason.ANXIOUS,
+                ReflectionReason.HABIT,
+            ),
+            ReflectionReason.CHECK_IN,
+        )
+        assertEquals(ReflectionReason.NEED, ReflectionReason.entries.last(), "NEED is last in the enum")
+        assertEquals(7, ReflectionReason.entries.size)
+        assertEquals(ReflectionReason.CHECK_IN, ReflectionReason.entries - ReflectionReason.NEED)
     }
 
     @Test

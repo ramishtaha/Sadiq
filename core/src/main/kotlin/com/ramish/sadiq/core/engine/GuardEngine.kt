@@ -764,6 +764,9 @@ class GuardEngine(
         is Choice.EndFocus -> endFocusFromPrompt(state, prompt, now, ctx, effects)
         is Choice.Reflect -> reflect(state, prompt, choice.reason, now, ctx, effects)
         is Choice.DoneEarly, is Choice.PauseGrant, is Choice.DiscardPaused -> state
+        // The override contract only (OV-0): arming and opening are T36/T37, which OV-1 builds here.
+        // Until then the two inputs are accepted and change nothing — no arm, no grant, no record.
+        is Choice.ArmOverride, is Choice.Override -> state
     }
 
     /** T06: Leave, or Back. */
@@ -1437,6 +1440,8 @@ class GuardEngine(
         GrantKind.FREE -> day.copy(freeUsedMs = day.freeUsedMs + grantedMs)
         GrantKind.QUICK -> day.copy(quickNeedsUsed = day.quickNeedsUsed + 1)
         GrantKind.STAY, GrantKind.PRAYER_STAY -> day
+        // "Open anyway" drains nothing: not the budget, not free scroll, not the quick minutes (A.9).
+        GrantKind.OVERRIDE -> day
     }
 
     /** T20: the app is no longer guarded, so the surface goes away without a decision or a star. */

@@ -72,4 +72,21 @@ object EngineRules {
 
     /** How long a self-test arm survives before it expires, so a forgotten test guards nothing later. */
     const val SELF_TEST_ARM_MS: Long = MINUTE_MS
+
+    // ── "Open anyway" (§A.0–A.4) ────────────────────────────────────────────────────────────────
+
+    /** What the door gives: ten minutes, fixed. Never longer, never a second hold. */
+    const val OVERRIDE_MS: Long = 10 * MINUTE_MS
+
+    /** How many times the door may open per logical day. */
+    const val OVERRIDE_DAY_CAP: Int = 2
+
+    /** How many times it may open per Bedtime night; it is never offered twice in one gate. */
+    const val OVERRIDE_NIGHT_CAP: Int = 1
+
+    /** The wait before the hold, by day. */
+    const val OVERRIDE_WAIT_MS: Long = 30_000L
+
+    /** The wait before the hold at Bedtime: slower, because 2 AM is when he is least able to say no. */
+    const val OVERRIDE_WAIT_NIGHT_MS: Long = 60_000L
 }

@@ -65,7 +65,6 @@ class SkyViewModel @Inject constructor(
     private val scheduleEvaluator: ScheduleEvaluator,
 ) : ViewModel() {
 
-    private val _needsOnboarding = MutableStateFlow(false)
     private val _totalLitStars = MutableStateFlow(0)
 
     /**
@@ -113,7 +112,7 @@ class SkyViewModel @Inject constructor(
 
         SkyUiState(
             loading = false,
-            needsOnboarding = !base.prefs.onboardingDone || _needsOnboarding.value,
+            needsOnboarding = !base.prefs.onboardingDone,
             stars = stars,
             kindling = engineState.kindles.size,
             totalLit = base.totalLit,
@@ -136,13 +135,6 @@ class SkyViewModel @Inject constructor(
     )
 
     init {
-        viewModelScope.launch {
-            settingsRepository.prefs.collect {
-                if (!it.onboardingDone) {
-                    _needsOnboarding.value = true
-                }
-            }
-        }
         viewModelScope.launch {
             starRepository.observeSky().collect {
                 _totalLitStars.value = starRepository.countLit()

@@ -72,6 +72,8 @@ class InterceptCopy @Inject constructor(@ApplicationContext private val context:
         SurfaceKind.TIME_UP -> when (ui.timeUpKind) {
             GrantKind.FREE -> context.getString(R.string.intercept_time_up_free_headline)
             GrantKind.QUICK -> context.getString(R.string.intercept_time_up_quick_headline)
+            // A.6: after the door's ten minutes are gone, the headline states the fact and stops.
+            GrantKind.OVERRIDE -> context.getString(R.string.intercept_time_up_override_headline)
             // A stay is a stay, whether it came from the prayer window or from the budget.
             null, GrantKind.STAY, GrantKind.PRAYER_STAY ->
                 grantedMinutes?.takeIf { it > 0 }?.let { minutes ->
@@ -139,6 +141,7 @@ class InterceptCopy @Inject constructor(@ApplicationContext private val context:
         SurfaceKind.TIME_UP -> when (ui.timeUpKind) {
             GrantKind.FREE -> context.getString(R.string.intercept_time_up_free_subtitle)
             GrantKind.QUICK -> null
+            GrantKind.OVERRIDE -> null
             // "…or choose a little more" is only true while the chips are actually there.
             null, GrantKind.STAY, GrantKind.PRAYER_STAY ->
                 if (ui.stayOptionsMin.isEmpty()) {
@@ -178,6 +181,7 @@ class InterceptCopy @Inject constructor(@ApplicationContext private val context:
         SurfaceKind.TIME_UP -> when (ui.timeUpKind) {
             GrantKind.FREE -> context.getString(R.string.intercept_time_up_free_primary_button)
             GrantKind.QUICK -> context.getString(R.string.intercept_time_up_quick_primary_button)
+            GrantKind.OVERRIDE -> context.getString(R.string.intercept_time_up_leave_button)
             null, GrantKind.STAY, GrantKind.PRAYER_STAY ->
                 context.getString(R.string.intercept_time_up_leave_button)
         }
@@ -349,7 +353,7 @@ class InterceptCopy @Inject constructor(@ApplicationContext private val context:
      * left before one; FREE or QUICK → nothing, because neither ends in a rest.
      */
     private fun timeUpCaption(ui: InterceptUi): String? = when (ui.timeUpKind) {
-        GrantKind.FREE, GrantKind.QUICK -> null
+        GrantKind.FREE, GrantKind.QUICK, GrantKind.OVERRIDE -> null
 
         null, GrantKind.STAY, GrantKind.PRAYER_STAY -> {
             val budget = ui.budgetRemainingMs
@@ -388,6 +392,9 @@ class InterceptCopy @Inject constructor(@ApplicationContext private val context:
             ReflectionReason.LONELY -> R.string.intercept_reflect_response_lonely
             ReflectionReason.ANXIOUS -> R.string.intercept_reflect_response_anxious
             ReflectionReason.HABIT -> R.string.intercept_reflect_response_habit
+            // Never reached: NEED is not a check-in chip (`ReflectionReason.CHECK_IN`). It exists
+            // so the day he is asked "why?" at the door has an answer that is not a judgement.
+            ReflectionReason.NEED -> R.string.intercept_reflect_response_need
         }
     )
 
@@ -404,6 +411,7 @@ class InterceptCopy @Inject constructor(@ApplicationContext private val context:
         ReflectionReason.LONELY -> R.string.intercept_reflect_chip_lonely
         ReflectionReason.ANXIOUS -> R.string.intercept_reflect_chip_anxious
         ReflectionReason.HABIT -> R.string.intercept_reflect_chip_habit
+        ReflectionReason.NEED -> R.string.intercept_reflect_chip_need
     }
 
     // ── glyph ────────────────────────────────────────────────────────────────────────────────

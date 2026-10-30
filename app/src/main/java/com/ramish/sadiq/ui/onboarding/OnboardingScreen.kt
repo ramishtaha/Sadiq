@@ -72,8 +72,11 @@ fun OnboardingScreen(nav: NavHostController, vm: OnboardingViewModel = hiltViewM
     // The wizard is over: leave it, and take the back stack with it so Back cannot re-enter setup.
     LaunchedEffect(state.done) {
         if (state.done) {
+            // Pop the wizard itself. `startDestinationId` is SKY, which SkyScreen removed on entry,
+            // so navigating with that popUpTo silently skipped the pop and left the finished wizard
+            // under Sky — Back or a task restore then re-opened setup (OB-1).
             nav.navigate(Routes.SKY) {
-                popUpTo(nav.graph.startDestinationId) { inclusive = true }
+                popUpTo(Routes.ONBOARDING) { inclusive = true }
                 launchSingleTop = true
             }
         }

@@ -42,7 +42,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
 /** The current state of the wizard. */
@@ -139,11 +141,24 @@ class OnboardingViewModel @Inject constructor(
     /** Whether a TEST surface has actually been seen since the last arm. */
     private var testSurfaceSeen: Boolean = false
 
+    /**
+     * True from the first finish request until `done`. The plan and Back are frozen while the writes
+     * run, so a restored step cannot walk the wizard backwards mid-finish.
+     */
+    private var finishing = false
+
     init {
         viewModelScope.launch {
             val installed = installedAppsSource.launchableApps()
             val config = settings.config.first()
             val prefs = settings.prefs.first()
+
+            // Setup has run before. Only a restored or stale entry reaches this: leave instead of
+            // walking him through the wizard a second time (OB-1, AUDIT-5 follow-up).
+            if (prefs.onboardingDone) {
+                mutableState.update { it.copy(loading = false, done = true) }
+                return@launch
+            }
 
             val installedPackages = installed.mapTo(mutableSetOf()) { it.packageName }
             val initialSelection = if (config.apps.isNotEmpty()) {
@@ -224,7 +239,7 @@ class OnboardingViewModel @Inject constructor(
         perms: PermissionSnapshot? = null,
         prefs: UiPrefs? = null,
     ) {
-        if (mutableState.value.done || mutableState.value.loading) return
+        if (finishing || mutableState.value.done || mutableState.value.loading) return
         val snapshot = perms ?: permsProvider.snapshot()
         val preferences = prefs ?: settings.prefs.first()
         lastPrefs = preferences
@@ -374,6 +389,7 @@ class OnboardingViewModel @Inject constructor(
 
     /** Returns to the previous step the user can actually act on. */
     fun back() {
+        if (finishing) return
         val state = mutableState.value
         val prefs = lastPrefs
         val perms = state.perms
@@ -423,26 +439,26 @@ class OnboardingViewModel @Inject constructor(
     }
 
     /**
-     * Ends the wizard: the choices are written, `onboardingDone` is set and the screen is told to
-     * leave.
+     * Ends the wizard: the choices are written first, `onboardingDone` last, and only then is the
+     * screen told to leave.
      *
-     * `done` is set before the writes, not after: the preferences write re-emits through
-     * [observePlan], and a plan recomputed in that window must see a finished wizard rather than
-     * walk it back to the first step.
+     * The order is the fix. `done` used to flip before the writes, so the screen navigated away,
+     * the Sky composed against the still-false preference and asked for onboarding again, and a
+     * killed process left setup undone while the UI said it was finished.
      */
     private suspend fun finishInternal() {
-        if (mutableState.value.done) return
+        if (finishing || mutableState.value.done) return
+        finishing = true
         val state = mutableState.value
-        mutableState.update { it.copy(done = true, testing = false) }
-        // The screen leaves as soon as `done` flips, which clears this ViewModel's scope. Without
-        // NonCancellable the last writes are cancelled mid-flight and the wizard restarts at step 1
-        // on the next launch — the user finishes setup and finds it undone.
-        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+        mutableState.update { it.copy(testing = false) }
+        withContext(NonCancellable) {
             persist(StepId.APPS, state)
             persist(StepId.MODE, state)
             persist(StepId.TIMES, state)
             settings.updatePrefs { it.copy(onboardingDone = true, onboardingStep = 0) }
         }
+        // Only now may the screen leave: the Sky decides from `onboardingDone` the moment it composes.
+        mutableState.update { it.copy(done = true) }
     }
 
     // ── choices ───────────────────────────────────────────────────────────────────────────────
@@ -616,10 +632,14 @@ class OnboardingViewModel @Inject constructor(
             // failure: it is the question working, waiting for an answer.
             delay(EngineRules.SELF_TEST_ARM_MS + ARM_GRACE_MS)
             if (mutableState.value.testResult == null) {
-                mutableState.update {
-                    if (testSurfaceSeen) {
-                        it.copy(testing = false)
-                    } else {
+                if (testSurfaceSeen) {
+                    // The question reached him. That is the whole claim the test makes, and a
+                    // surface he saw but walked away from without answering proves it just as well
+                    // as one he answered. Treating it as "no result" left the last step with no way
+                    // to finish, which is how setup stayed undone forever.
+                    recordWelcomeStar()
+                } else {
+                    mutableState.update {
                         it.copy(testResult = SelfTestResult.Failed(app.packageName), testing = false)
                     }
                 }

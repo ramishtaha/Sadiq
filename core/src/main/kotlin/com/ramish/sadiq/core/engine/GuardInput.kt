@@ -83,6 +83,15 @@ sealed interface Choice {
 
     /** End the running focus session. */
     data object EndFocus : Choice
+
+    /**
+     * "Open anyway": switch the surface to the confirm view and start the wait (§A.2, T36). No
+     * record and no economy call — arming is not opening.
+     */
+    data object ArmOverride : Choice
+
+    /** Hold through the cost line to open anyway, with [reason] as the honest answer (§A.2, T37). */
+    data class Override(val reason: ReflectionReason) : Choice
 }
 
 /**

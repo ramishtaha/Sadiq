@@ -310,13 +310,15 @@ object Fixtures {
         startWall: Long = wall("2026-10-28T22:30"),
         grants: Int = 0,
         quickNeeds: Int = 0,
-        reconciledUsage: Boolean = false
+        reconciledUsage: Boolean = false,
+        overrides: Int = 0
     ): LedgerEntry = LedgerEntry(
         kind = kind,
         startWall = startWall,
         grants = grants,
         quickNeeds = quickNeeds,
-        reconciledUsage = reconciledUsage
+        reconciledUsage = reconciledUsage,
+        overrides = overrides
     )
 
     /** The prompt on screen. */
@@ -327,7 +329,8 @@ object Fixtures {
         shownWall: Long = EVENING.wallMs,
         reflectReason: ReflectionReason? = null,
         testMode: Boolean = false,
-        returnRoute: String? = null
+        returnRoute: String? = null,
+        overrideArmedElapsed: Long? = null
     ): Prompt = Prompt(
         kind = kind,
         packageName = packageName,
@@ -335,7 +338,8 @@ object Fixtures {
         shownWall = shownWall,
         reflectReason = reflectReason,
         testMode = testMode,
-        returnRoute = returnRoute
+        returnRoute = returnRoute,
+        overrideArmedElapsed = overrideArmedElapsed
     )
 
     /** A self-test arm. */
@@ -429,7 +433,8 @@ object Fixtures {
         litTotal: Int = 0,
         lastLeaveLitWall: Long? = null,
         freeUsedMs: Long = 0L,
-        quickNeedsUsed: Int = 0
+        quickNeedsUsed: Int = 0,
+        overridesUsed: Int = 0
     ): EconomyDay = EconomyDay(
         logicalDay = logicalDay,
         litLeave = litLeave,
@@ -437,7 +442,8 @@ object Fixtures {
         litTotal = litTotal,
         lastLeaveLitWall = lastLeaveLitWall,
         freeUsedMs = freeUsedMs,
-        quickNeedsUsed = quickNeedsUsed
+        quickNeedsUsed = quickNeedsUsed,
+        overridesUsed = overridesUsed
     )
 
     /** A star. */
@@ -502,6 +508,11 @@ object Fixtures {
      * @param forceDark whether the surface must be dark.
      * @param testMode whether it is a self-test.
      * @param mode the mode in force.
+     * @param overrideLeft "Open anyway" uses left today, null when not offered.
+     * @param overrideWaitMs the wait before the hold.
+     * @param overrideArmedElapsed when the door was armed, null unless the confirm view shows.
+     * @param overrideStarsAtStake window stars at stake, 3 or 2, or null.
+     * @param overrideBackAtWall when the door comes back, null unless a cap is spent.
      */
     fun ui(
         kind: SurfaceKind = SurfaceKind.PAUSE,
@@ -528,7 +539,12 @@ object Fixtures {
         leaveEarnsStar: Boolean = true,
         forceDark: Boolean = false,
         testMode: Boolean = false,
-        mode: Mode = Mode.BALANCED
+        mode: Mode = Mode.BALANCED,
+        overrideLeft: Int? = null,
+        overrideWaitMs: Long? = null,
+        overrideArmedElapsed: Long? = null,
+        overrideStarsAtStake: Int? = null,
+        overrideBackAtWall: Long? = null
     ): InterceptUi = InterceptUi(
         kind = kind,
         packageName = packageName,
@@ -554,7 +570,12 @@ object Fixtures {
         leaveEarnsStar = leaveEarnsStar,
         forceDark = forceDark,
         testMode = testMode,
-        mode = mode
+        mode = mode,
+        overrideLeft = overrideLeft,
+        overrideWaitMs = overrideWaitMs,
+        overrideArmedElapsed = overrideArmedElapsed,
+        overrideStarsAtStake = overrideStarsAtStake,
+        overrideBackAtWall = overrideBackAtWall
     )
 
     /** A suggestion. */

@@ -19,8 +19,8 @@ android {
         targetSdk = 36
         // A5-14: a frozen versionCode means the next build cannot install over the last one
         // without an uninstall, which erases the sky. Bump on every release.
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

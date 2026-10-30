@@ -34,7 +34,13 @@ enum class GrantKind {
     STAY,
     FREE,
     QUICK,
-    PRAYER_STAY
+    PRAYER_STAY,
+
+    /**
+     * "Open anyway": the ten discouraged minutes from the door on a surface that offers no yes of
+     * its own. It never lights a star and never touches the sky (§A.0).
+     */
+    OVERRIDE
 }
 
 /** Why a grant stopped. Recorded, never inferred later. */
@@ -164,6 +170,7 @@ data class Kindle(
  * @property startWall window start in wall milliseconds.
  * @property grants STAY, FREE or PRAYER_STAY grants opened inside it.
  * @property quickNeeds one-minute grants opened inside it.
+ * @property overrides "Open anyway" grants opened inside it; a count of its own, never a star (§A.9).
  * @property reconciledUsage whether usage stats reported guarded use inside it.
  */
 @Serializable
@@ -172,7 +179,8 @@ data class LedgerEntry(
     val startWall: Long,
     val grants: Int,
     val quickNeeds: Int,
-    val reconciledUsage: Boolean
+    val reconciledUsage: Boolean,
+    val overrides: Int = 0
 )
 
 /**
@@ -185,6 +193,8 @@ data class LedgerEntry(
  * @property reflectReason the reason chosen in a check-in, once one has been chosen.
  * @property testMode whether this is the onboarding or Health-check self-test.
  * @property returnRoute where a self-test should send the user afterwards.
+ * @property overrideArmedElapsed elapsed reading when "Open anyway" was armed; non-null means the
+ *   confirm view is showing (§A.2).
  */
 @Serializable
 data class Prompt(
@@ -194,7 +204,8 @@ data class Prompt(
     val shownWall: Long,
     val reflectReason: ReflectionReason?,
     val testMode: Boolean,
-    val returnRoute: String?
+    val returnRoute: String?,
+    val overrideArmedElapsed: Long? = null
 )
 
 /**

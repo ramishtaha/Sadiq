@@ -436,6 +436,7 @@ private fun reasonLabel(reason: ReflectionReason): String = stringResource(
         ReflectionReason.LONELY -> R.string.intercept_reflect_chip_lonely
         ReflectionReason.ANXIOUS -> R.string.intercept_reflect_chip_anxious
         ReflectionReason.HABIT -> R.string.intercept_reflect_chip_habit
+        ReflectionReason.NEED -> R.string.intercept_reflect_chip_need
     }
 )
 

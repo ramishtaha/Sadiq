@@ -7,14 +7,27 @@ import com.ramish.sadiq.core.model.GuardConfig
 import com.ramish.sadiq.core.model.Mode
 import com.ramish.sadiq.core.model.PrayerName
 
-/** Why the user says he opened the app. One tap, no free text, no judgement (§4.4). */
+/**
+ * Why the user says he opened the app. One tap, no free text, no judgement (§4.4).
+ *
+ * [NEED] is added last on purpose: the six check-in answers keep their order, and therefore the
+ * weekly tie-break, while "I need it" is only ever a reason on the "Open anyway" confirm view.
+ */
 enum class ReflectionReason {
     BORED,
     TIRED,
     AVOIDING,
     LONELY,
     ANXIOUS,
-    HABIT
+    HABIT,
+
+    /** "I need it": the reason chip on the "Open anyway" confirm view, never a check-in chip. */
+    NEED;
+
+    companion object {
+        /** The check-in chips, in their original order and tie-break: everything but [NEED]. */
+        val CHECK_IN: List<ReflectionReason> = entries - NEED
+    }
 }
 
 /** An action attached to a suggestion line, if any. */
@@ -154,6 +167,7 @@ data class WeeklyInput(
  * @property quietNights quiet nights counted in the reviewed days.
  * @property focusMinutes focus minutes completed in the reviewed days.
  * @property topReason the most common check-in answer, or null.
+ * @property overrides "Open anyway" opens in the reviewed days; never a star, never a shaming (§A.7).
  * @property suggestion the one change worth considering, or null.
  * @property approximate whether Sadiq is saying "approximate" on the Week screen.
  */
@@ -168,7 +182,8 @@ data class WeeklyReview(
     val focusMinutes: Int,
     val topReason: ReflectionReason?,
     val suggestion: WeeklySuggestion?,
-    val approximate: Boolean
+    val approximate: Boolean,
+    val overrides: Int = 0
 )
 
 /** A single, concrete change the Week screen may propose. One per review, never a list of nagging. */
