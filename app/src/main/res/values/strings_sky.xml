@@ -5,6 +5,8 @@
     <string name="sky_your_sky">YOUR SKY</string>
     <string name="sky_lit_tonight">+%d tonight</string>
     <string name="sky_status_asleep">Sadiq is asleep</string>
+    <!-- Enabled in Settings, but nothing is bound: HyperOS killed it or an update unbound it (A5-07). -->
+    <string name="sky_status_not_running">Sadiq is on but not running</string>
     <string name="sky_status_focusing">Focusing · ends %s</string>
     <string name="sky_status_bedtime">Bedtime until Fajr · %s</string>
     <string name="sky_status_prayer">%s time</string>
@@ -15,14 +17,20 @@
     <string name="sky_mode_steady">Steady</string>
     <string name="sky_mode_firm">Firm</string>
     <string name="sky_today_section_header">TODAY</string>
-    <string name="sky_free_minutes_earned">Free minutes, from today\'s stars</string>
+    <!-- The balance (earned − spent), never the minutes already spent. Addendum §1.4. -->
+    <string name="sky_free_minutes_earned">%1$d free minutes, from today\'s stars</string>
     <string name="sky_button_start_focus">Start focus</string>
     <string name="sky_empty_headline">Your sky is waiting.</string>
     <string name="sky_empty_subtitle">Each star is a moment you did what you meant. Say no to a feed once, and the first one appears here.</string>
     <string name="sky_tooltip_leave">You said no to %s.</string>
-    <string name="sky_tooltip_kept_word">You did what you said: %d minutes.</string>
+    <!--
+      A star does not carry the minutes it was paid for: SkyStar holds the kind, the time and the
+      package, and nothing else. A tooltip therefore states only what the record proves (A5-08) — the
+      earlier "%d minutes" versions printed 0 for every KEPT_WORD and FOCUS star.
+    -->
+    <string name="sky_tooltip_kept_word">You did what you said.</string>
     <string name="sky_tooltip_done_early">You finished before your time was up.</string>
-    <string name="sky_tooltip_focus">%d minutes of focus.</string>
+    <string name="sky_tooltip_focus">You did the focus you chose.</string>
     <string name="sky_tooltip_focus_finish">You finished the focus you started.</string>
     <string name="sky_tooltip_quiet_night">A quiet night.</string>
     <string name="sky_tooltip_quiet_morning">A quiet morning.</string>
@@ -30,4 +38,12 @@
     <string name="card_asleep_title">Sadiq is asleep</string>
     <string name="card_asleep_body">It can\'t ask you anything until you wake it.</string>
     <string name="card_asleep_action">Wake Sadiq</string>
+    <!-- The switch reads on but the service is not bound; the fix is to toggle it, not to grant it. -->
+    <string name="card_not_running_title">Sadiq is on but not running</string>
+    <string name="card_not_running_body">Turn it off and on again.</string>
+
+    <!-- A5-04: the question was refused while the backup layer is off. -->
+    <string name="card_popups_missed_title">The question didn\'t appear</string>
+    <string name="card_popups_missed_body">HyperOS needs pop-ups allowed.</string>
+    <string name="card_popups_missed_action">Open settings</string>
 </resources>

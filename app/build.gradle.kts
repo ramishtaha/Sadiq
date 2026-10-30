@@ -17,8 +17,10 @@ android {
         applicationId = "com.ramish.sadiq"
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.1"
+        // A5-14: a frozen versionCode means the next build cannot install over the last one
+        // without an uninstall, which erases the sky. Bump on every release.
+        versionCode = 2
+        versionName = "1.0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

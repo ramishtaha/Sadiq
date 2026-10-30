@@ -27,12 +27,13 @@ class SkyStatusResolver @Inject constructor(
      * Resolves the highest-priority status message for the Sky screen.
      * Order of priority (highest first):
      * 1. Sadiq is asleep (accessibility off)
-     * 2. Focusing (focus running)
-     * 3. Bedtime (sleep gate active)
-     * 4. Prayer time (prayer window active)
-     * 5. Feeds are resting (cooldown active)
-     * 6. Your morning (morning window active)
-     * 7. Default (guarding N apps, mode)
+     * 2. Sadiq is on but not running (enabled, not bound) — A5-07
+     * 3. Focusing (focus running)
+     * 4. Bedtime (sleep gate active)
+     * 5. Prayer time (prayer window active)
+     * 6. Feeds are resting (cooldown active)
+     * 7. Your morning (morning window active)
+     * 8. Default (guarding N apps, mode)
      */
     fun resolve(
         config: GuardConfig,
@@ -48,6 +49,13 @@ class SkyStatusResolver @Inject constructor(
     ): SkyStatus {
         if (!permissionSnapshot.accessibilityEnabled) {
             return SkyStatus(R.string.sky_status_asleep, priority = 100)
+        }
+
+        // The switch reads on and nothing is bound: the service is gone (killed overnight, unbound by
+        // an update), so no window below it can be enforced. Saying "focusing" or "Bedtime" here
+        // would describe a guard that is not there (A5-07).
+        if (!permissionSnapshot.accessibilityConnected) {
+            return SkyStatus(R.string.sky_status_not_running, priority = 95)
         }
 
         if (focusRunning) {

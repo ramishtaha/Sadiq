@@ -5,14 +5,25 @@ import android.app.Notification
 import android.content.Context
 import android.os.PowerManager
 import androidx.core.app.NotificationManagerCompat
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
 import com.ramish.sadiq.contract.LiveNotifier
 import com.ramish.sadiq.contract.NotificationContract
+import com.ramish.sadiq.contract.PermissionStatusProvider
 import com.ramish.sadiq.core.engine.LiveState
 import com.ramish.sadiq.core.sound.SoundKind
+import com.ramish.sadiq.core.time.Clock
 import com.ramish.sadiq.core.time.TimeSnapshot
+import com.ramish.sadiq.data.settings.SettingsKeys
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * The one writer of notification id 1 while a grant or a focus session is alive, and of id 2 for the
@@ -27,10 +38,19 @@ import javax.inject.Singleton
 @Singleton
 class LiveNotifierImpl @Inject constructor(
     @ApplicationContext context: Context,
-    private val factory: NotificationFactory
+    private val factory: NotificationFactory,
+    private val dataStore: DataStore<Preferences>,
+    private val clock: Clock,
+    private val permissionStatusProvider: PermissionStatusProvider,
 ) : LiveNotifier {
 
     private val manager: NotificationManagerCompat = NotificationManagerCompat.from(context)
+
+    /**
+     * The note is posted from whichever surface saw the fault, and that surface may be gone before
+     * DataStore answers. A process-scoped scope keeps the post from depending on a ViewModel's life.
+     */
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * The power manager the completion rule asks, read from the application context this notifier
@@ -64,22 +84,56 @@ class LiveNotifierImpl @Inject constructor(
         post(NotificationContract.ID_ATTENTION, factory.focusComplete(stars) ?: return)
     }
 
+    /**
+     * The once-a-day note that Sadiq cannot ask anything, posted at most once per 24 h.
+     *
+     * The wording follows the state the permission provider reports at the moment of posting: a
+     * service the user turned off is asleep, and a service that reads "on" but is not bound is on but
+     * not running. Both are the same fault seen from different places, so both use the one attention
+     * id and the one `last_attention_notif_at` budget (A5-07).
+     */
     override fun asleep() {
-        post(NotificationContract.ID_ATTENTION, factory.asleep())
+        scope.launch {
+            val nowWall: Long = clock.now().wallMs
+            val lastPosted: Long? = runCatching {
+                dataStore.data.first()[SettingsKeys.LAST_ATTENTION_NOTIF_AT]
+            }.getOrNull()
+            if (lastPosted != null && nowWall - lastPosted < ATTENTION_INTERVAL_MS) return@launch
+
+            // Re-read at the moment of posting: the caller saw the fault, but the fault may be gone
+            // by now, and "Sadiq is asleep" over a working Sadiq is exactly the kind of lie this
+            // build is fixing.
+            val snapshot = permissionStatusProvider.snapshot()
+            if (snapshot.accessibilityEnabled && snapshot.accessibilityConnected) return@launch
+
+            val onButNotRunning: Boolean = snapshot.accessibilityEnabled
+            if (!post(NotificationContract.ID_ATTENTION, factory.asleep(onButNotRunning = onButNotRunning))) {
+                return@launch
+            }
+
+            // Only a post that actually happened spends the day's one note.
+            runCatching {
+                dataStore.edit { prefs -> prefs[SettingsKeys.LAST_ATTENTION_NOTIF_AT] = nowWall }
+            }
+        }
     }
 
     /**
      * Posts without ever letting a notification problem reach the engine. Without notification
      * permission the service still runs and the timers still count; only the visible chip is missing,
      * which is the documented behaviour.
+     *
+     * @return true when the notification reached the shade.
      */
     @SuppressLint("MissingPermission")
-    private fun post(id: Int, notification: Notification) {
-        if (!manager.areNotificationsEnabled()) return
-        try {
+    private fun post(id: Int, notification: Notification): Boolean {
+        if (!manager.areNotificationsEnabled()) return false
+        return try {
             manager.notify(id, notification)
+            true
         } catch (_: SecurityException) {
             // The permission was revoked between the check and the post. Nothing else changes.
+            false
         }
     }
 
@@ -97,6 +151,9 @@ class LiveNotifierImpl @Inject constructor(
     internal companion object {
         fun shouldPostFocusComplete(stars: Int, screenInteractive: Boolean): Boolean =
             !screenInteractive && stars >= 1
+
+        /** §4.6's budget for the attention channel: one "Sadiq can't ask" note a day, at most. */
+        const val ATTENTION_INTERVAL_MS: Long = 24L * 60L * 60L * 1000L
     }
 
     /** The identity of a live notification, with the countdown rounded to ten seconds. */

@@ -163,11 +163,26 @@ class NotificationFactory @Inject constructor(
             .build()
     }
 
-    /** "Sadiq is asleep" · what it cannot do until the user wakes it. At most one per 24 h. */
-    fun asleep(): Notification =
+    /**
+     * The one attention post for a Sadiq that cannot ask: at most once per 24 h, enforced by
+     * [LiveNotifierImpl].
+     *
+     * @param onButNotRunning true when the service is enabled but not bound. That is a different
+     *   fault from a service the user turned off, and it has a different fix, so it has its own two
+     *   lines (A5-07). Telling him to wake a service that already reads "on" would be untrue.
+     */
+    fun asleep(onButNotRunning: Boolean = false): Notification =
         attentionBuilder()
-            .setContentTitle(context.getString(R.string.notify_asleep_title))
-            .setContentText(context.getString(R.string.notify_asleep_text))
+            .setContentTitle(
+                context.getString(
+                    if (onButNotRunning) R.string.notify_not_running_title else R.string.notify_asleep_title
+                )
+            )
+            .setContentText(
+                context.getString(
+                    if (onButNotRunning) R.string.notify_not_running_text else R.string.notify_asleep_text
+                )
+            )
             .build()
 
     /** Every Sadiq notification shares the small star and never shows its content on a lock screen. */

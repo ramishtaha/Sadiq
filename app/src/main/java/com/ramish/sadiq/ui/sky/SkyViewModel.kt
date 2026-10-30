@@ -9,6 +9,7 @@ import com.ramish.sadiq.contract.HomeCardProvider
 import com.ramish.sadiq.contract.PermissionStatusProvider
 import com.ramish.sadiq.contract.SettingsRepository
 import com.ramish.sadiq.contract.UiPrefs
+import com.ramish.sadiq.core.economy.StarEconomy
 import com.ramish.sadiq.core.model.GuardConfig
 import com.ramish.sadiq.core.sky.SkyStar
 import com.ramish.sadiq.contract.StarRepository
@@ -34,9 +35,17 @@ data class SkyUiState(
     val kindling: Int = 0,
     val totalLit: Int = 0,
     val litToday: Int = 0,
-    val freeMinutesLeft: Int = 0,
+    /**
+     * Free-scroll minutes still spendable today: what today's stars earned minus what was already
+     * spent (A5-16). It is a balance, so it falls as the day is used, and it is 0 at rollover.
+     */
+    val freeMinutesAvailable: Int = 0,
     val status: SkyStatus? = null,
     val card: HomeCardModel? = null,
+    /**
+     * True when Sadiq cannot ask anything right now: the service is off, or it is on and not bound.
+     * Two sentences, one flag — the flag decides whether an empty sky is drawn, the copy decides why.
+     */
     val asleep: Boolean = false,
     val skySeed: Long = 0L,
 )
@@ -51,6 +60,7 @@ class SkyViewModel @Inject constructor(
     private val permissionStatusProvider: PermissionStatusProvider,
     private val homeAction: HomeAction,
     private val skyStatusResolver: SkyStatusResolver,
+    private val starEconomy: StarEconomy,
     private val clock: Clock,
     private val scheduleEvaluator: ScheduleEvaluator,
 ) : ViewModel() {
@@ -108,10 +118,15 @@ class SkyViewModel @Inject constructor(
             kindling = engineState.kindles.size,
             totalLit = base.totalLit,
             litToday = engineState.economy.litTotal,
-            freeMinutesLeft = (engineState.economy.freeUsedMs / 60_000).toInt(),
+            // The balance, from the one implementation of the economy rules — not `freeUsedMs`,
+            // which is the minutes already spent and was shown as if they were minutes earned (A5-16).
+            freeMinutesAvailable =
+                (starEconomy.freeScrollAvailableMs(engineState.economy) / MILLIS_PER_MINUTE).toInt(),
             status = skyStatus,
             card = homeCard,
-            asleep = !permissions.accessibilityEnabled,
+            // On but not bound is the state HyperOS leaves behind; it is not a healthy Sadiq either
+            // (A5-07). `accessibilityConnected` already accounts for the cold-start grace window.
+            asleep = !permissions.accessibilityEnabled || !permissions.accessibilityConnected,
             skySeed = base.prefs.skySeed,
         )
     }.stateIn(
@@ -148,5 +163,13 @@ class SkyViewModel @Inject constructor(
         return combine(sortedProviders.map { it.card }) { cards ->
             cards.firstOrNull { it != null }
         }
+    }
+
+    /**
+     * The one conversion this screen needs and `EconomyRules` does not publish for Kotlin callers:
+     * every duration in the plan is expressed in milliseconds.
+     */
+    private companion object {
+        const val MILLIS_PER_MINUTE: Long = 60_000L
     }
 }

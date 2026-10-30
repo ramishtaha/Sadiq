@@ -7,6 +7,7 @@ import com.ramish.sadiq.core.model.GuardedApp
 import com.ramish.sadiq.core.model.Mode
 import com.ramish.sadiq.core.model.SurfaceMode
 import com.ramish.sadiq.core.strict.SettingsChange
+import com.ramish.sadiq.strict.FakePendingChangesRepository
 import com.ramish.sadiq.testing.FakeInstalledAppsSource
 import com.ramish.sadiq.testing.FakeSettingsRepository
 import kotlinx.coroutines.CompletableDeferred
@@ -23,6 +24,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -62,10 +64,12 @@ class AppPickerViewModelTest {
 
     private fun createViewModel(
         repository: FakeSettingsRepository,
+        pending: FakePendingChangesRepository = FakePendingChangesRepository(),
         installedApps: List<AppInfo> = defaultInstalledApps,
     ): AppPickerViewModel = AppPickerViewModel(
         installedAppsSource = FakeInstalledAppsSource(installedApps),
         settingsRepository = repository,
+        pendingChanges = pending,
     )
 
     /** Collects [AppPickerViewModel.uiState] so the `WhileSubscribed` shared flow actually runs. */
@@ -247,6 +251,115 @@ class AppPickerViewModelTest {
         // Two pops would take him past the Guard tab, so the second tap is dropped with its callback.
         assertEquals(1, repository.applied.size)
         assertEquals(1, saves)
+
+        stopListening(subscription)
+    }
+
+    /**
+     * A5-01, the picker half: an app whose removal is already queued must render unticked, because
+     * that is what he will actually have. The live config keeps it until the row lands, which is what
+     * made him un-tick it a second time and made the second save record the same removal again.
+     */
+    @Test
+    fun aQueuedRemovalRendersUnticked() = pickerTest {
+        val repository = FakeSettingsRepository(
+            initialConfig = GuardConfig(
+                apps = listOf(GuardedApp(INSTAGRAM, "Instagram"), GuardedApp(REDDIT, "Reddit")),
+            ),
+        )
+        val pending = FakePendingChangesRepository()
+        pending.add(
+            SettingsChange.SetApps(listOf(GuardedApp(REDDIT, "Reddit")), removed = setOf(INSTAGRAM)),
+            applyAt = 1_000L,
+        )
+        val viewModel = createViewModel(repository, pending)
+        val subscription = listen(viewModel)
+        runCurrent()
+
+        assertEquals(
+            false,
+            viewModel.uiState.value.row(INSTAGRAM)?.isSelected,
+            "a removal that is already waiting is not a tick he still holds",
+        )
+        assertEquals(setOf(REDDIT), viewModel.uiState.value.selectedPackages)
+        assertEquals(
+            1_000L,
+            viewModel.uiState.value.pendingRemovals[INSTAGRAM],
+            "the screen needs the moment to say when it stops being guarded",
+        )
+
+        stopListening(subscription)
+    }
+
+    /** The other direction: an app a waiting row will add is shown as ticked before it lands. */
+    @Test
+    fun aQueuedAdditionRendersTicked() = pickerTest {
+        val repository = FakeSettingsRepository(
+            initialConfig = GuardConfig(apps = listOf(GuardedApp(INSTAGRAM, "Instagram"))),
+        )
+        val pending = FakePendingChangesRepository()
+        pending.add(
+            SettingsChange.SetApps(
+                listOf(GuardedApp(INSTAGRAM, "Instagram"), GuardedApp(YOUTUBE, "YouTube")),
+                removed = emptySet(),
+            ),
+            applyAt = 1_000L,
+        )
+        val viewModel = createViewModel(repository, pending)
+        val subscription = listen(viewModel)
+        runCurrent()
+
+        assertEquals(true, viewModel.uiState.value.row(YOUTUBE)?.isSelected)
+        assertEquals(setOf(INSTAGRAM, YOUTUBE), viewModel.uiState.value.selectedPackages)
+
+        stopListening(subscription)
+    }
+
+    /**
+     * A5-01, the save half: ticking an app whose removal is waiting is a decision, and the only one
+     * that can call the removal off. The write itself is a no-op — the table already holds the app —
+     * so without this the row would land ten minutes later and un-guard it behind his back.
+     */
+    @Test
+    fun reTickingAPendingRemovalCallsItOff() = pickerTest {
+        val repository = FakeSettingsRepository(
+            initialConfig = GuardConfig(
+                apps = listOf(GuardedApp(INSTAGRAM, "Instagram"), GuardedApp(REDDIT, "Reddit")),
+            ),
+        )
+        val pending = FakePendingChangesRepository()
+        pending.add(
+            SettingsChange.SetApps(
+                listOf(GuardedApp(INSTAGRAM, "Instagram"), GuardedApp(REDDIT, "Reddit")),
+                removed = setOf(INSTAGRAM, YOUTUBE),
+            ),
+            applyAt = 1_000L,
+        )
+        val viewModel = createViewModel(repository, pending)
+        val subscription = listen(viewModel)
+        runCurrent()
+
+        assertEquals(false, viewModel.uiState.value.row(INSTAGRAM)?.isSelected)
+
+        // He changes his mind and ticks it again.
+        viewModel.onAppToggle(INSTAGRAM, "Instagram", true)
+        runCurrent()
+        assertEquals(true, viewModel.uiState.value.row(INSTAGRAM)?.isSelected)
+
+        viewModel.saveGuardedApps { }
+        runCurrent()
+
+        val row = pending.all.single()
+        val rewritten = row.change as SettingsChange.SetApps
+        assertFalse(
+            INSTAGRAM in rewritten.removed.orEmpty(),
+            "the queued row must stop planning to drop the app he just guarded",
+        )
+        assertTrue(
+            YOUTUBE in rewritten.removed.orEmpty(),
+            "a package he did not touch keeps its removal",
+        )
+        assertEquals(1_000L, row.applyAt, "the row keeps the moment it was given")
 
         stopListening(subscription)
     }

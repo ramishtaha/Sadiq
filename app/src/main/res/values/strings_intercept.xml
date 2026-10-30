@@ -60,11 +60,11 @@
     <string name="intercept_sleep_gate_primary_button">Go to sleep</string>
     <string name="intercept_sleep_gate_secondary_button">Wind down with rain · 20 min</string>
     <string name="intercept_sleep_gate_tertiary_button">Hold for one minute · %d left</string>
-    <string name="intercept_sleep_gate_caption">Sleep gate until Fajr</string>
+    <string name="intercept_sleep_gate_caption">Bedtime until Fajr</string>
 
     <!-- FOCUS_GUARD -->
     <string name="intercept_focus_guard_headline">You\'re focusing.</string>
-    <string name="intercept_focus_guard_subtitle">%d min left. You\'ve got this.</string>
+    <string name="intercept_focus_guard_subtitle">%d min left.</string>
     <string name="intercept_focus_guard_primary_button">Back to focus</string>
     <string name="intercept_focus_guard_secondary_button">End focus</string>
     <string name="intercept_focus_guard_tertiary_button">Hold for one minute · %d left</string>
@@ -81,7 +81,8 @@
     <string name="intercept_time_up_caption_before_rest">%d min left before rest</string>
 
     <string name="intercept_time_up_free_headline">Free scroll\'s done.</string>
-    <string name="intercept_time_up_free_subtitle">That was yours. Enjoy the evening.</string>
+    <!-- A fact about what was spent, not a feeling about the evening (A5-08). -->
+    <string name="intercept_time_up_free_subtitle">That was the free scroll you earned.</string>
     <string name="intercept_time_up_free_primary_button">Go home</string>
 
     <string name="intercept_time_up_quick_headline">That was your minute.</string>
@@ -145,7 +146,8 @@
     <string name="intercept_bedtime_headline">It’s %1$s. Time to sleep.</string>
     <string name="intercept_bedtime_subtitle">Fajr is at %1$s. That’s %2$s from now.</string>
     <string name="intercept_bedtime_primary_button">Go to sleep</string>
-    <string name="intercept_bedtime_caption">The feeds rest until Fajr.</string>
+    <!-- The engine has no rest here: every guarded open until Fajr gets this question again (A5-08). -->
+    <string name="intercept_bedtime_caption">Sadiq asks again until Fajr.</string>
     <string name="intercept_bedtime_tertiary_button">One minute · %1$d left</string>
     <string name="intercept_cooldown_tertiary_button">Hold for one minute · %1$d left today</string>
     <string name="intercept_cooldown_tertiary_button_free">Free scroll · %1$d min</string>

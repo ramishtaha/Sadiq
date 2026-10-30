@@ -10,10 +10,13 @@ import com.ramish.sadiq.contract.UiPrefs
 import com.ramish.sadiq.core.model.GuardConfig
 import com.ramish.sadiq.core.model.GuardedApp
 import com.ramish.sadiq.core.strict.SettingsChange
-import com.ramish.sadiq.core.strict.isSupersededBy
 import com.ramish.sadiq.core.strict.rebasedOnto
-import com.ramish.sadiq.core.strict.withRemovalsRecorded
 import com.ramish.sadiq.core.time.Clock
+import com.ramish.sadiq.data.settings.deferredAgainst
+import com.ramish.sadiq.data.settings.isMadePointlessBy
+import com.ramish.sadiq.data.settings.queuedRemovals
+import com.ramish.sadiq.data.settings.rebasedBehind
+import com.ramish.sadiq.data.settings.rewritesAfterAppWrite
 import com.ramish.sadiq.testing.DefaultTestPrefs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,11 +31,17 @@ import kotlinx.coroutines.flow.asStateFlow
  * meaningful — the applier is exercised against a repository that really does re-ask the gate, so a
  * missing bypass would show up as a change that never lands rather than as a green test.
  *
- * The three A4-12 pieces are mirrored too, because they are the behaviour under test: a deferred
- * `SetApps` records what it removes ([withRemovalsRecorded]), a queued snapshot is rebased onto the
- * list in force ([rebasedOnto]) instead of replacing it, and a queued row of the same kind is
- * dropped when a newer edit of that kind lands. Without them the fake would reproduce the bug the
- * real repository no longer has.
+ * The AUDIT-4 A4-12 and AUDIT-5 pieces are not mirrored here by hand: every one of them is the
+ * production function, called with this fake's in-memory table instead of Room's.
+ * - a deferred `SetApps` records what it removes, against the table and excluding what an earlier
+ *   row already drops ([deferredAgainst]);
+ * - a queued snapshot is rebased onto the list in force ([rebasedOnto]) instead of replacing it;
+ * - every write composes the rows still waiting ([rewritesAfterAppWrite]), so a stale snapshot
+ *   cannot re-add what an earlier row removed or un-guard an app he re-added;
+ * - a queued row a newer edit has replaced is dropped, field by field ([isMadePointlessBy]).
+ *
+ * Without them the fake would reproduce the bugs the real repository no longer has, so a test that
+ * passed here would prove nothing.
  *
  * The in-memory write handles every [SettingsChange] subtype, because the repository is also the
  * fixture for the classification tests.
@@ -64,17 +73,25 @@ class GatedSettingsRepository(
     override suspend fun apply(change: SettingsChange): ApplyResult {
         failure?.let { thrown -> throw thrown }
         val nowWall = clock.now().wallMs
-        return when (val decision = gate.gate(mutableConfig.value, change, nowWall)) {
+        val before = mutableConfig.value
+        return when (val decision = gate.gate(before, change, nowWall)) {
             GateDecision.ApplyNow -> {
                 applied += change
-                mutableConfig.value = applyNow(mutableConfig.value, change)
-                dropSuperseded(change, nowWall)
+                val next = applyNow(before, change)
+                mutableConfig.value = next
+                composeWaitingRows(
+                    before = before.apps,
+                    written = next.apps,
+                    nowWall = nowWall,
+                    live = change !is SettingsChange.SetApps || change.removed == null,
+                )
+                settleWaitingEdits(change, nowWall, before, next.apps)
                 ApplyResult.Applied
             }
 
             is GateDecision.Defer -> {
                 pendingChanges.add(
-                    queuedRowFor(change, mutableConfig.value.apps),
+                    queuedRowFor(change, before.apps),
                     decision.applyAtWall
                 )
                 ApplyResult.Scheduled(decision.applyAtWall)
@@ -83,24 +100,61 @@ class GatedSettingsRepository(
     }
 
     /**
-     * The row to queue for a deferred edit: a `SetApps` snapshot keeps its list and gains the
-     * packages it drops, as `SettingsRepositoryImpl.queuedRowFor` does.
+     * The row to queue for a deferred edit: a `SetApps` snapshot keeps its list, gains the packages
+     * it drops and loses the ones an earlier row is already dropping, as
+     * `SettingsRepositoryImpl.queuedRowFor` does.
      */
-    private fun queuedRowFor(change: SettingsChange, guardedNow: List<GuardedApp>): SettingsChange =
-        when (change) {
-            is SettingsChange.SetApps -> change.withRemovalsRecorded(guardedNow)
-            else -> change
-        }
+    private suspend fun queuedRowFor(
+        change: SettingsChange,
+        guardedNow: List<GuardedApp>
+    ): SettingsChange = when (change) {
+        is SettingsChange.SetApps -> change.deferredAgainst(
+            guardedNow = guardedNow,
+            alreadyQueuedRemovals = pendingChanges.due(Long.MAX_VALUE).queuedRemovals(),
+        )
+
+        else -> change
+    }
 
     /**
-     * Mirror of `SettingsRepositoryImpl.dropSuperseded`: a row still waiting behind an edit of the
-     * same kind that has just landed is dead weight, and would otherwise undo that edit when its own
-     * moment came.
+     * Mirror of `SettingsRepositoryImpl.composeWaitingRows`: every row still waiting is brought up to
+     * date with what this write left in the table.
      */
-    private suspend fun dropSuperseded(applied: SettingsChange, nowWall: Long) {
+    private suspend fun composeWaitingRows(
+        before: List<GuardedApp>,
+        written: List<GuardedApp>,
+        nowWall: Long,
+        live: Boolean
+    ) {
+        val rewrites = pendingChanges.due(Long.MAX_VALUE)
+            .rewritesAfterAppWrite(before, written, nowWall, live)
+        for (rewrite in rewrites) {
+            pendingChanges.remove(rewrite.row.id)
+            pendingChanges.add(rewrite.replacement, rewrite.row.applyAt)
+        }
+    }
+
+    /**
+     * Mirror of `SettingsRepositoryImpl.settleWaitingEdits`: a row still waiting behind an edit that
+     * has already done its work is dead weight and goes; one that still has a different field to
+     * change is re-cut so it carries only that field.
+     */
+    private suspend fun settleWaitingEdits(
+        applied: SettingsChange,
+        nowWall: Long,
+        before: GuardConfig,
+        written: List<GuardedApp>
+    ) {
         for (row in pendingChanges.due(Long.MAX_VALUE)) {
-            if (row.applyAt > nowWall && row.change.isSupersededBy(applied)) {
+            if (row.applyAt <= nowWall) continue
+            if (row.change.isMadePointlessBy(applied, before, written)) {
                 pendingChanges.remove(row.id)
+                continue
+            }
+            val recut = row.change.rebasedBehind(applied, before)
+            if (recut != row.change) {
+                pendingChanges.remove(row.id)
+                pendingChanges.add(recut, row.applyAt)
             }
         }
     }

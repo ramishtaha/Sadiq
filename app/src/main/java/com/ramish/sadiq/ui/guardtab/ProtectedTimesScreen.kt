@@ -75,7 +75,9 @@ fun ProtectedTimesScreen(navController: NavController, viewModel: ProtectedTimes
                         onClick = { showSleepGateTimePicker = true }
                     )
                     Text(
-                        text = stringResource(R.string.protected_times_sleep_gate_note, "20:46"), // TODO: Actual time
+                        // The rule, in the engine's own terms — no example clock time (A5-08). The
+                        // line below states tonight's computed window, which is the only real number.
+                        text = stringResource(R.string.protected_times_sleep_gate_note),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = Spacing.sm)

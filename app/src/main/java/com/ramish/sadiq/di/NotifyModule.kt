@@ -2,6 +2,7 @@ package com.ramish.sadiq.di
 
 import com.ramish.sadiq.AppInitializer
 import com.ramish.sadiq.contract.LiveNotifier
+import com.ramish.sadiq.notify.AsleepWatch
 import com.ramish.sadiq.notify.LiveNotifierImpl
 import com.ramish.sadiq.notify.NotificationInitializer
 import dagger.Binds
@@ -26,4 +27,9 @@ abstract class NotifyModule {
     @Binds
     @IntoSet
     abstract fun notificationInitializer(impl: NotificationInitializer): AppInitializer
+
+    /** The one note for a switch that is on while nothing is bound (A5-07). */
+    @Binds
+    @IntoSet
+    abstract fun asleepWatch(impl: AsleepWatch): AppInitializer
 }

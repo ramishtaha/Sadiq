@@ -52,6 +52,13 @@ import kotlinx.coroutines.sync.withLock
  * it stays guarded; an app the snapshot meant to add is added; only the removal the user asked for
  * happens. See `rebasedOnto` in the core `PendingChangeRebase.kt` for the full statement.
  *
+ * **A batch of due rows is composed in order** (AUDIT-5 A5-02). Rebasing alone is not enough when
+ * two app rows land together: the second one's snapshot was taken before the first one removed
+ * anything, so `snapshot − current` would read that removal as an addition and put the app back.
+ * The rows applied earlier in a pass are therefore remembered here (`removalsMade`) and struck out
+ * of the snapshots still to come. Rows that land in a later pass do not need this: the repository
+ * composes every waiting snapshot when a row lands.
+ *
  * A row that carries no removal record at all was written by a build before that record existed. It
  * cannot say what it meant to remove, so [forQueuedApply] tells the repository to merge it rather
  * than replace: it can re-add an app the user dropped, which he can see and undo, but it can never
@@ -100,13 +107,20 @@ class PendingChangeApplier @Inject constructor(
      */
     suspend fun applyDue(nowWall: Long = clock.now().wallMs): Int = mutex.withLock {
         var applied = 0
+        // What the rows already applied in this pass took away. `current` in the repository reflects
+        // it, but a later row's snapshot does not: it was taken before any of them landed, so the
+        // removal reads as an addition unless it is named here (AUDIT-5 A5-02).
+        val removalsMade = mutableSetOf<String>()
         for (pending in pendingChanges.due(nowWall)) {
             try {
                 // The bypass is what stops the gate from deferring the edit a second time: this row
                 // has already waited, and re-judging it would restart its clock forever.
-                changeGate.applyingDueChange { settingsRepository.apply(forQueuedApply(pending)) }
+                changeGate.applyingDueChange {
+                    settingsRepository.apply(forQueuedApply(pending, removalsMade))
+                }
                 pendingChanges.remove(pending.id)
                 applied++
+                (pending.change as? SettingsChange.SetApps)?.removed?.let(removalsMade::addAll)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (failure: Throwable) {
@@ -121,18 +135,33 @@ class PendingChangeApplier @Inject constructor(
     /**
      * The change to hand the repository for one queued row.
      *
-     * A `SetApps` row queued by this build carries its removal record (`removed != null`) and the
-     * repository rebases it. One written by an earlier build carries none: replaying it verbatim is
-     * the A4-12 bug with nothing recorded to correct it, so it is promoted to "removes nothing" and
-     * merged into the list in force instead. That direction is chosen on purpose — it can leave an
-     * app guarded that the user asked to drop, which he can see, but it can never drop one he did
-     * not.
+     * Two corrections are applied to the stored snapshot, both about what the table and the queue
+     * already know:
+     *
+     * - **what earlier rows in this pass removed** is struck out of the snapshot, so it cannot be
+     *   read as an addition (`removalsMade`, AUDIT-5 A5-02);
+     * - a row queued by a build that did not record removals is promoted to "removes nothing" and
+     *   merged into the list in force. That direction is chosen on purpose — it can leave an app
+     *   guarded that the user asked to drop, which he can see, but it can never drop one he did not.
+     *
+     * @param alreadyRemoved packages the rows applied before this one in this pass took away.
      */
-    private fun forQueuedApply(pending: PendingChange): SettingsChange {
+    private fun forQueuedApply(
+        pending: PendingChange,
+        alreadyRemoved: Set<String>
+    ): SettingsChange {
         val change = pending.change
-        if (change !is SettingsChange.SetApps || change.removed != null) return change
+        if (change !is SettingsChange.SetApps) return change
+        val composed = if (alreadyRemoved.isEmpty()) {
+            change
+        } else {
+            change.copy(
+                apps = change.apps.filterNot { app -> app.packageName in alreadyRemoved },
+            )
+        }
+        if (composed.removed != null) return composed
         Log.w(TAG, "pending change ${pending.id} carries no removal record; merging its app list")
-        return change.copy(removed = emptySet())
+        return composed.copy(removed = emptySet())
     }
 
     /** One poll iteration, isolated so a database failure cannot kill the loop. */

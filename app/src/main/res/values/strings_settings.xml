@@ -98,7 +98,7 @@
     <string name="health_accessibility_off">Off. Sadiq can\'t ask until you turn it on.</string>
 
     <string name="health_popups_on">On. Sadiq can ask the moment you open an app.</string>
-    <string name="health_popups_off">Off. The question may take a moment longer to appear.</string>
+    <string name="health_popups_off">Off. Sadiq can\'t show the question over an app until this is on.</string>
     <string name="health_popups_unknown">Not checked. HyperOS didn\'t answer.</string>
 
     <string name="health_battery_on">No restrictions. The system leaves Sadiq alone.</string>

@@ -4,12 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ramish.sadiq.contract.ApplyResult
 import com.ramish.sadiq.contract.InstalledAppsSource
+import com.ramish.sadiq.contract.PendingChange
+import com.ramish.sadiq.contract.PendingChangesRepository
 import com.ramish.sadiq.contract.SettingsRepository
 import com.ramish.sadiq.core.apps.AppCatalog
 import com.ramish.sadiq.core.model.GuardedApp
 import com.ramish.sadiq.core.strict.SettingsChange
+import com.ramish.sadiq.data.settings.rewritesCancellingRemovals
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,6 +31,12 @@ data class AppPickerUiState(
     val selectedPackages: Set<String> = emptySet(),
     val loading: Boolean = true,
     val installedAppsSource: InstalledAppsSource? = null,
+    /**
+     * Packages a queued "Think it over" edit is going to stop guarding, mapped to the wall time it
+     * happens at. They render unticked — that is what he will actually have — and the moment is here
+     * so the row can say when.
+     */
+    val pendingRemovals: Map<String, Long> = emptyMap(),
 )
 
 data class AppRow(
@@ -35,11 +45,30 @@ data class AppRow(
     val isSelected: Boolean,
 )
 
+/**
+ * The selection, as he will have it, not as the table holds it.
+ *
+ * [guarded] is the live config, which keeps an app until the queued row that drops it lands.
+ * [pendingRemovals] and [pendingAdditions] are the intent of the rows already waiting. Everything
+ * the picker shows is read from the folded value, because a tick is a promise: an app whose removal
+ * is queued must not render ticked (AUDIT-5 A5-01 — it did, so he un-ticked it again and the second
+ * save recorded the same removal a second time).
+ */
+private data class GuardIntent(
+    val guarded: Set<String>,
+    val pendingRemovals: Map<String, Long>,
+    val pendingAdditions: Set<String>,
+) {
+    /** What he will have if he saves nothing: the live list with the queue's intent folded in. */
+    val effective: Set<String> get() = (guarded + pendingAdditions) - pendingRemovals.keys
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class AppPickerViewModel @Inject constructor(
     private val installedAppsSource: InstalledAppsSource,
     private val settingsRepository: SettingsRepository,
+    private val pendingChanges: PendingChangesRepository,
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
@@ -70,9 +99,17 @@ class AppPickerViewModel @Inject constructor(
      */
     private var saveInFlight: Boolean = false
 
+    /** The live list and the queue's intent, folded once per emission of either. */
+    private val intent: Flow<GuardIntent> = combine(
+        settingsRepository.config.map { config ->
+            config.apps.mapTo(mutableSetOf()) { app -> app.packageName }
+        },
+        pendingChanges.observe(),
+    ) { guarded, rows -> guardIntent(guarded, rows) }
+
     val uiState: StateFlow<AppPickerUiState> = combine(
         _query,
-        settingsRepository.config.map { it.apps.map { it.packageName }.toSet() },
+        intent,
         _added,
         _removed,
         flow {
@@ -80,12 +117,12 @@ class AppPickerViewModel @Inject constructor(
             installedLabels = apps.associate { it.packageName to it.label }
             emit(apps)
         },
-    ) { query, configGuardedPackages, added, removed, installedApps ->
-        // A row is ticked only when it is guarded (by the config or his new tick) AND he has not
-        // just un-ticked it. The config half is read live, so an app guarded by another screen shows
-        // as ticked; the `added` half is his own pending tick and no emission can take it away.
+    ) { query, intent, added, removed, installedApps ->
+        // A row is ticked only when he will actually have it — the live list with the queue folded
+        // in, or his own new tick — and he has not just un-ticked it. Reading the queue is what stops
+        // an app whose removal is already pending from rendering ticked (A5-01).
         fun isOn(pkg: String): Boolean =
-            pkg !in removed && (pkg in configGuardedPackages || pkg in added)
+            pkg !in removed && (pkg in intent.effective || pkg in added)
 
         val filteredApps = installedApps.filter { it.label.contains(query, ignoreCase = true) }
 
@@ -112,9 +149,10 @@ class AppPickerViewModel @Inject constructor(
             query = query,
             suggestedApps = suggestedFeeds,
             allApps = allOtherApps,
-            selectedPackages = (configGuardedPackages + added) - removed,
+            selectedPackages = (intent.effective + added) - removed,
             loading = false,
             installedAppsSource = installedAppsSource,
+            pendingRemovals = intent.pendingRemovals,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -150,6 +188,13 @@ class AppPickerViewModel @Inject constructor(
      * `surfaceMode` survives. Rebuilding it from the package and label would silently reset a
      * `SHORTS_ONLY` app to `WHOLE_APP` on every save.
      *
+     * The saved list is the live one plus his deltas — not the folded selection. A queued removal is
+     * already on its way, and writing it out as a fresh loosening edit would make the save wait a
+     * second ten minutes and delay an addition that has nothing to do with it. The one thing that
+     * cannot be expressed as a list is a **re-tick**: an app whose removal is queued is still in the
+     * table, so ticking it again is a no-op write, and only [cancelQueuedRemovals] can call the
+     * removal off (A5-01).
+     *
      * @param onDone called with the [ApplyResult] once the change has been applied or scheduled.
      */
     fun saveGuardedApps(onDone: (ApplyResult) -> Unit) {
@@ -157,6 +202,10 @@ class AppPickerViewModel @Inject constructor(
         saveInFlight = true
         viewModelScope.launch {
             try {
+                // Before the write, so a row queued by this save is recorded against a queue that no
+                // longer plans to remove what he just kept.
+                cancelQueuedRemovals(_added.value)
+
                 // The saved set is the full selection, not the rows the search box happens to show.
                 // Saving the filtered rows used to un-guard every app the user had searched past.
                 // Zero is a valid selection: un-guarding the last app has to be possible.
@@ -171,4 +220,43 @@ class AppPickerViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Calls off a queued removal of an app he has just ticked again.
+     *
+     * The picker is the only place that knows a tick was a decision rather than an inherited state:
+     * with the queue folded into the rows, an app whose removal is waiting shows unticked, so a tick
+     * on it is always his own. The row is rewritten without that package in its removal record — and
+     * kept, because it may still be adding an app — so nothing un-guards what he just kept.
+     */
+    private suspend fun cancelQueuedRemovals(reticked: Set<String>) {
+        if (reticked.isEmpty()) return
+        val rewrites = pendingChanges.due(Long.MAX_VALUE).rewritesCancellingRemovals(reticked)
+        for (rewrite in rewrites) {
+            pendingChanges.remove(rewrite.row.id)
+            pendingChanges.add(rewrite.replacement, rewrite.row.applyAt)
+        }
+    }
+}
+
+/**
+ * Folds the waiting rows into one intent.
+ *
+ * A `SetApps` row can say two things: it will drop these packages ([SettingsChange.SetApps.removed])
+ * and it will guard those in its snapshot that the table does not have yet. The first occurrence of
+ * a removal wins, because rows arrive earliest-first and that is the moment it actually happens.
+ */
+private fun guardIntent(guarded: Set<String>, rows: List<PendingChange>): GuardIntent {
+    val removals = linkedMapOf<String, Long>()
+    val additions = mutableSetOf<String>()
+    for (row in rows) {
+        val change = row.change as? SettingsChange.SetApps ?: continue
+        change.removed.orEmpty().forEach { pkg ->
+            if (pkg !in removals) removals[pkg] = row.applyAt
+        }
+        change.apps.forEach { app ->
+            if (app.packageName !in guarded) additions += app.packageName
+        }
+    }
+    return GuardIntent(guarded = guarded, pendingRemovals = removals, pendingAdditions = additions)
 }

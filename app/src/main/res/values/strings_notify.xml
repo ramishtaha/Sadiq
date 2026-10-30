@@ -28,4 +28,11 @@
     <string name="notify_focus_complete_title">Focus complete</string>
     <string name="notify_asleep_title">Sadiq is asleep</string>
     <string name="notify_asleep_text">It can\'t ask you anything until you wake it.</string>
+    <!-- The switch is on and nothing is bound (A5-07): the permission is not the problem, the process is. -->
+    <string name="notify_not_running_title">Sadiq is on but not running</string>
+    <string name="notify_not_running_text">Turn it off and on again.</string>
+
+    <!-- A5-04: a question no host could draw. Posted once per day, on the attention channel. -->
+    <string name="notify_surface_missed_title">The question couldn\'t appear</string>
+    <string name="notify_surface_missed_text">HyperOS didn\'t let Sadiq show it. Allow pop-ups so it can ask.</string>
 </resources>

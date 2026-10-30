@@ -32,7 +32,9 @@ class ForbiddenWordsTest {
     private fun stringsFiles(): List<File> =
         (resDir.listFiles() ?: emptyArray())
             .filter { it.isDirectory && it.name.startsWith("values") }
-            .flatMap { dir -> (dir.listFiles() ?: emptyArray()).filter { it.name.startsWith("strings") && it.extension == "xml" } }
+            // A5-09: every resource file can carry user-facing text (arrays, plurals, a stray
+            // strings_*.xml nobody remembers), so the scan is not limited to file names.
+            .flatMap { dir -> (dir.listFiles() ?: emptyArray()).filter { it.extension == "xml" } }
 
     private fun entries(file: File): List<Pair<String, String>> =
         stringTag.findAll(file.readText())

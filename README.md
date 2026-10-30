@@ -34,7 +34,7 @@ and lock the app in Recents).
 
 The APK on this machine is signed by the shared debug cert:
 `/root/.sadiq/keys/sadiq-debug.jks` (alias `sadiq`), SHA-256
-`CC:4C:DF:D2:4B:47:AA:4B:99:0A:24:CA:90:AA:58:FA:89:73:2C:84:7C:3A:D5:65:5A:8E:CA:16:68:AF:7F:9F`.
+`DA:AA:E7:AB:90:67:82:EA:1A:F1:7C:65:91:62:AF:04:E9:3D:8E:77:F0:35:06:B8:94:54:A5:19:A2:32:47:34`.
 Keep that keystore: installing over this package with a different cert forces an uninstall, which erases the sky.
 
 ## Build / test

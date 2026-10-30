@@ -171,7 +171,7 @@ fun SkyScreen(nav: NavController, viewModel: SkyViewModel = hiltViewModel()) {
                         )
                     }
                 }
-                if (state.freeMinutesLeft > 0) {
+                if (state.freeMinutesAvailable > 0) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             painter = painterResource(R.drawable.ic_star_glyph),
@@ -181,7 +181,8 @@ fun SkyScreen(nav: NavController, viewModel: SkyViewModel = hiltViewModel()) {
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = stringResource(R.string.sky_free_minutes_earned, state.freeMinutesLeft),
+                            // A balance, not a total: minutes still available today (A5-16).
+                            text = stringResource(R.string.sky_free_minutes_earned, state.freeMinutesAvailable),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -246,8 +247,9 @@ fun SkyScreen(nav: NavController, viewModel: SkyViewModel = hiltViewModel()) {
             }
         }
 
-        // Empty Sky State
-        if (state.totalLit == 0 && !state.loading && state.status?.stringRes != R.string.sky_status_asleep) {
+        // Empty Sky State — never over a Sadiq that cannot ask: the asleep/not-running card above
+        // already says why, and "Your sky is waiting" would read as an invitation it cannot fulfil.
+        if (state.totalLit == 0 && !state.loading && !state.asleep) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,

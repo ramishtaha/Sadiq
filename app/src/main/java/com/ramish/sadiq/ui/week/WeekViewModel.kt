@@ -50,6 +50,9 @@ data class WeekBar(
  * @property available false until Sadiq's records span a whole week; the screen then says so instead
  *   of drawing a half-week as if it were a week.
  * @property approximate true when the numbers come from Sadiq's own records rather than usage stats.
+ * @property usageAccess whether Sadiq can read the platform's usage stats right now. It separates the
+ *   two reasons a week can be approximate — no permission, or permission with no rows yet — because
+ *   the screen offers a different sentence (and only offers the fix) for each.
  * @property deltaMs this week minus last week, or null when there is no comparison week.
  * @property suggestionApplied true once the one suggestion has been applied from this screen, so it
  *   is not offered a second time in the same session.
@@ -60,6 +63,7 @@ data class WeekUiState(
     val loading: Boolean = true,
     val available: Boolean = false,
     val approximate: Boolean = false,
+    val usageAccess: Boolean = false,
     val totalMs: Long = 0L,
     val deltaMs: Long? = null,
     val topApps: List<WeekBar> = emptyList(),
@@ -190,6 +194,9 @@ class WeekViewModel @Inject constructor(
         val input: WeeklyInput = withHourlyProfile(stored, config)
         val review: WeeklyReview = weeklyReviewBuilder.build(input)
         val labels: Map<String, String> = appLabels()
+        // Read once per load, next to the numbers it explains: "Approximate" has two causes and the
+        // screen must not blame the wrong one (A5-06).
+        val hasUsageAccess: Boolean = runCatching { usageHistory.hasAccess() }.getOrDefault(false)
 
         val largestMs: Long = review.topApps.maxOfOrNull { (_, ms) -> ms } ?: 0L
         val bars: List<WeekBar> = review.topApps.map { (packageName, ms) ->
@@ -206,6 +213,7 @@ class WeekViewModel @Inject constructor(
             loading = false,
             available = WeekCoverage.isWeekReady(input),
             approximate = review.approximate,
+            usageAccess = hasUsageAccess,
             totalMs = review.totalMs,
             deltaMs = review.deltaMs,
             topApps = bars,

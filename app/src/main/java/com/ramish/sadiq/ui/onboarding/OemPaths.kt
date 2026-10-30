@@ -13,12 +13,15 @@ import com.ramish.sadiq.ui.onboarding.OnboardingPlan.StepId
  *
  * Two are versioned outright: the accessibility list is "Downloaded apps" on HyperOS 2 and
  * "Installed apps" on HyperOS 3 ([R.string.onboarding_os_o5_os2_path] versus
- * [R.string.onboarding_os_o5_os3_path]). The other two carry the variant in the name only as
- * `_path` / `_alt_path`: `_path` is the MIUI-lineage wording the HyperOS 2 builds kept, `_alt_path`
- * the alternative the plan records for newer builds ("Open new windows…" for pop-ups, Autostart
- * inside App info). That assignment is **unverified** — it is the one thing on this screen that
- * needs a minute on his phone — but it can only ever be wrong in the label, never in the
- * destination: the deep link does not depend on it.
+ * [R.string.onboarding_os_o5_os3_path]). O5b's "Allow restricted settings" and O12's usage-access
+ * list were not renamed between the two versions, so one string serves both
+ * ([R.string.onboarding_os_o5b_path], [R.string.onboarding_os_o12_path]).
+ *
+ * The remaining two carry the variant in the name only as `_path` / `_alt_path`: `_path` is the
+ * MIUI-lineage wording the HyperOS 2 builds kept, `_alt_path` the alternative the plan records for
+ * newer builds ("Open new windows…" for pop-ups, Autostart inside App info). That assignment is
+ * **unverified** — it is the one thing on this screen that needs a minute on his phone — but it can
+ * only ever be wrong in the label, never in the destination: the deep link does not depend on it.
  *
  * Nothing is rendered for an unknown version. A MIUI build reports no HyperOS major at all, and a
  * path with the wrong menu names is worse than no path: the action button still opens the page, and
@@ -42,19 +45,23 @@ object OemPaths {
     fun pathFor(step: StepId, hyperOsMajor: Int?): Int? = when (hyperOsMajor) {
         HYPER_OS_2 -> when (step) {
             StepId.ACCESSIBILITY -> R.string.onboarding_os_o5_os2_path
+            StepId.RESTRICTED_SETTING -> R.string.onboarding_os_o5b_path
             StepId.POPUPS -> R.string.onboarding_os_o7_path
             StepId.BATTERY_SAVER -> R.string.onboarding_os_o9_path
             StepId.AUTOSTART -> R.string.onboarding_os_o10_path
             StepId.RECENTS -> R.string.onboarding_os_o11_path
+            StepId.USAGE -> R.string.onboarding_os_o12_path
             else -> null
         }
 
         HYPER_OS_3 -> when (step) {
             StepId.ACCESSIBILITY -> R.string.onboarding_os_o5_os3_path
+            StepId.RESTRICTED_SETTING -> R.string.onboarding_os_o5b_path
             StepId.POPUPS -> R.string.onboarding_os_o7_alt_path
             StepId.BATTERY_SAVER -> R.string.onboarding_os_o9_path
             StepId.AUTOSTART -> R.string.onboarding_os_o10_alt_path
             StepId.RECENTS -> R.string.onboarding_os_o11_path
+            StepId.USAGE -> R.string.onboarding_os_o12_path
             else -> null
         }
 

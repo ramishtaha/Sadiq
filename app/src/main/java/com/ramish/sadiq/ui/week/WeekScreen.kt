@@ -1,6 +1,7 @@
 package com.ramish.sadiq.ui.week
 
 import android.text.format.DateFormat
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -116,7 +117,10 @@ fun WeekContent(
                 verticalArrangement = Arrangement.spacedBy(Spacing.lg),
             ) {
                 if (state.approximate) {
-                    ApproximateNote(onTurnOnUsageAccess = onTurnOnUsageAccess)
+                    ApproximateNote(
+                        usageAccess = state.usageAccess,
+                        onTurnOnUsageAccess = onTurnOnUsageAccess,
+                    )
                 } else {
                     // The headline is a measured total. When the numbers are engine records it would
                     // be a guess dressed as a measurement, so it is withheld (§4.6, A4-16).
@@ -165,6 +169,27 @@ private fun comparisonLine(deltaMs: Long?): String {
     }
 }
 
+/**
+ * The line "Where it went" shows when it has no bars to draw.
+ *
+ * Three different silences, three different sentences (A5-06):
+ * - a measured week with no rows really did have no guarded time;
+ * - an approximate week without usage access is one Sadiq cannot see, and it must say so — never
+ *   that nothing happened;
+ * - an approximate week *with* usage access is one whose rows have not arrived yet, so blaming the
+ *   permission would be false too.
+ *
+ * @param approximate true when the numbers came from Sadiq's own records instead of usage stats.
+ * @param usageAccess whether Sadiq can read the platform's usage stats right now.
+ * @return the string resource to draw, and the only thing the screen decides about this state.
+ */
+@StringRes
+internal fun whereItWentEmptyText(approximate: Boolean, usageAccess: Boolean): Int = when {
+    !approximate -> R.string.week_no_apps
+    !usageAccess -> R.string.week_no_usage
+    else -> R.string.week_no_usage_rows
+}
+
 /** Card 2: three bars and the two hours most of it fell in. */
 @Composable
 private fun WhereItWentCard(state: WeekUiState) {
@@ -180,7 +205,10 @@ private fun WhereItWentCard(state: WeekUiState) {
             // exactness (AUDIT-5 A5-06).
             Text(
                 text = stringResource(
-                    if (state.approximate) R.string.week_no_usage else R.string.week_no_apps
+                    whereItWentEmptyText(
+                        approximate = state.approximate,
+                        usageAccess = state.usageAccess,
+                    )
                 ),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -372,9 +400,9 @@ private fun AppliedLine(appliedAtWall: Long?) {
     )
 }
 
-/** "Approximate", and the one tap that would make it exact. */
+/** "Approximate", and the one tap that would make it exact — offered only while it can help. */
 @Composable
-private fun ApproximateNote(onTurnOnUsageAccess: () -> Unit) {
+private fun ApproximateNote(usageAccess: Boolean, onTurnOnUsageAccess: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Surface(
             shape = MaterialTheme.shapes.small,
@@ -387,10 +415,14 @@ private fun ApproximateNote(onTurnOnUsageAccess: () -> Unit) {
                 modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
             )
         }
-        TextPillButton(
-            text = stringResource(R.string.week_turn_on_usage_access),
-            onClick = onTurnOnUsageAccess,
-        )
+        // With usage access already granted there is nothing to turn on; the missing piece is the
+        // week's rows, not the permission, so the button would be a fix for the wrong fault (A5-06).
+        if (!usageAccess) {
+            TextPillButton(
+                text = stringResource(R.string.week_turn_on_usage_access),
+                onClick = onTurnOnUsageAccess,
+            )
+        }
     }
 }
 

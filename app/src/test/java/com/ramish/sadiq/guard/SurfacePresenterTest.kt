@@ -1,6 +1,8 @@
 package com.ramish.sadiq.guard
 
+import com.ramish.sadiq.contract.MediaDucker
 import com.ramish.sadiq.core.engine.SurfaceKind
+import com.ramish.sadiq.core.time.LogicalDays
 import com.ramish.sadiq.testing.FakeClock
 import com.ramish.sadiq.testing.FakeSettingsRepository
 import kotlin.test.Test
@@ -10,6 +12,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -42,6 +46,69 @@ class SurfacePresenterTest {
         // happened, and it is what makes the pop-ups card lie. The activity stays the only host.
         assertFalse(rig.holder.overlayRequested.value, "no host may be asked for while the host is off")
         assertTrue(rig.settings.overlayFallbacks.isEmpty(), "a fallback that did not happen is not counted")
+        // A5-04: the miss is not silent. It is counted for the day, the pause is given back, and the
+        // first one of the day is explained.
+        assertEquals(1, rig.misses.current?.count)
+        assertEquals(1, rig.media.releases, "the reel the question paused must not stay paused")
+        assertEquals(1, rig.notifier.posts)
+    }
+
+    @Test
+    fun aMissIsCountedOnItsLogicalDay() = runTest {
+        val rig = Rig(backgroundScope)
+        rig.presenter.show(testUi())
+        advance(rig, 700)
+
+        val now = rig.clock.now()
+        assertEquals(
+            LogicalDays.of(now.wallMs, now.zoneId),
+            rig.misses.current?.day,
+            "the card's day must be the logical day, not the calendar one",
+        )
+    }
+
+    @Test
+    fun onlyTheFirstMissOfTheDayIsExplained() = runTest {
+        val rig = Rig(backgroundScope)
+        rig.presenter.show(testUi())
+        advance(rig, 700)
+
+        // The next window change retries the launch and fails the same way. The count climbs; the
+        // shade is not written to a second time.
+        rig.presenter.show(testUi())
+        advance(rig, 700)
+
+        assertEquals(2, rig.misses.current?.count)
+        assertEquals(1, rig.notifier.posts)
+    }
+
+    @Test
+    fun aMissOnANewDayIsExplainedAgain() = runTest {
+        val rig = Rig(backgroundScope)
+        rig.presenter.show(testUi())
+        advance(rig, 700)
+        assertEquals(1, rig.notifier.posts)
+
+        // Past the 04:00 logical rollover: yesterday's miss must not silence today's.
+        rig.clock.set(rig.clock.current.copy(wallMs = rig.clock.current.wallMs + DAY_MS))
+        rig.presenter.show(testUi())
+        advance(rig, 700)
+
+        assertEquals(2, rig.notifier.posts)
+        assertEquals(1, rig.misses.current?.count, "a new day starts its own count")
+    }
+
+    @Test
+    fun aQuestionThatIsAnsweredBeforeTheWindowMissesNothing() = runTest {
+        val rig = Rig(backgroundScope)
+        rig.presenter.show(testUi())
+        advance(rig, 200)
+        rig.presenter.dismiss()
+        advance(rig, 700)
+
+        assertNull(rig.misses.current)
+        assertEquals(0, rig.media.releases)
+        assertEquals(0, rig.notifier.posts)
     }
 
     @Test
@@ -177,17 +244,23 @@ class SurfacePresenterTest {
         runCurrent()
     }
 
-    /** The presenter, its holder and the two seams a test can observe. */
+    /** The presenter, its holder and the four seams a test can observe. */
     private class Rig(scope: CoroutineScope) {
         val clock = FakeClock()
         val holder = InterceptStateHolder(clock)
         val settings = FakeSettingsRepository()
         val launcher = RecordingLauncher()
+        val media = RecordingDucker()
+        val misses = FakeSurfaceMisses()
+        val notifier = RecordingNotifier()
         val presenter = SurfacePresenterImpl(
             holder = holder,
             launcher = launcher,
             settings = settings,
             clock = clock,
+            mediaDucker = media,
+            misses = misses,
+            notifier = notifier,
             scope = scope,
         )
     }
@@ -199,5 +272,52 @@ class SurfacePresenterTest {
         override fun launch() {
             launches += 1
         }
+    }
+
+    /** The duck the question takes and gives back; a miss has to give it back (§3.5, A5-04). */
+    private class RecordingDucker : MediaDucker {
+        var ducks = 0
+            private set
+        var releases = 0
+            private set
+
+        override fun duck() {
+            ducks += 1
+        }
+
+        override fun release() {
+            releases += 1
+        }
+    }
+
+    /** The miss record, in memory: the presenter only counts, the Sky card reads. */
+    private class FakeSurfaceMisses : SurfaceMisses {
+        private val state = MutableStateFlow<SurfaceMiss?>(null)
+
+        override val last: Flow<SurfaceMiss?> = state
+
+        /** What the record holds right now, for assertions. */
+        val current: SurfaceMiss? get() = state.value
+
+        override fun record(day: Int): Int {
+            val previous = state.value
+            val next = if (previous != null && previous.day == day) previous.count + 1 else 1
+            state.value = SurfaceMiss(day, next)
+            return next
+        }
+    }
+
+    private class RecordingNotifier : SurfaceMissNotifier {
+        var posts = 0
+            private set
+
+        override fun questionCouldNotAppear() {
+            posts += 1
+        }
+    }
+
+    private companion object {
+        /** One civil day, for the rollover test. */
+        const val DAY_MS: Long = 24 * 60 * 60 * 1000L
     }
 }

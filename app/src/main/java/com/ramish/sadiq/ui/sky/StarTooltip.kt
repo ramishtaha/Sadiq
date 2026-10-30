@@ -35,11 +35,14 @@ fun StarTooltip(
             val formattedDate = date.format(formatter)
             val formattedTime = time.format(timeFormatter)
 
+            // A star carries no duration: SkyStar holds the kind, the time and the package only, so
+            // the tooltip states what the record proves and never prints a number it does not have.
+            // The old form passed 0, which read "0 minutes" for every KEPT_WORD and FOCUS star (A5-08).
             val text = when (star.kind) {
                 StarKind.LEAVE -> stringResource(R.string.sky_tooltip_leave, star.sourcePackage ?: "")
-                StarKind.KEPT_WORD -> stringResource(R.string.sky_tooltip_kept_word, 0) // TODO: retrieve actual minutes from star.sourceRef or similar
+                StarKind.KEPT_WORD -> stringResource(R.string.sky_tooltip_kept_word)
                 StarKind.DONE_EARLY -> stringResource(R.string.sky_tooltip_done_early)
-                StarKind.FOCUS -> stringResource(R.string.sky_tooltip_focus, 0) // TODO: retrieve actual minutes from star.sourceRef or similar
+                StarKind.FOCUS -> stringResource(R.string.sky_tooltip_focus)
                 StarKind.FOCUS_FINISH -> stringResource(R.string.sky_tooltip_focus_finish)
                 StarKind.QUIET_NIGHT -> stringResource(R.string.sky_tooltip_quiet_night)
                 StarKind.PROTECTED_MORNING -> stringResource(R.string.sky_tooltip_quiet_morning)

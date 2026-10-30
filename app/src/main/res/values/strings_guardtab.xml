@@ -42,7 +42,7 @@
     <string name="protected_times_title">Protected times</string>
     <string name="protected_times_sleep_gate_section_header">SLEEP GATE</string>
     <string name="protected_times_sleep_gate_title">Sleep Gate</string>
-    <string name="protected_times_sleep_gate_note">Never earlier than 30 min after Isha · today %s</string>
+    <string name="protected_times_sleep_gate_note">Your time, or 30 minutes after Isha — whichever is later. 90 after Isha during Ramadan.</string>
     <string name="protected_times_sleep_gate_preview">Tonight: %1$s → %2$s (Fajr).</string>
     <string name="protected_times_morning_window_section_header">MORNING WINDOW</string>
     <string name="protected_times_morning_window_title">Morning Window</string>

@@ -21,12 +21,16 @@ import com.ramish.sadiq.core.sky.QuietNightConstellations
 import com.ramish.sadiq.core.sky.StarLayout
 import com.ramish.sadiq.core.sky.VogelStarLayout
 import com.ramish.sadiq.core.time.Clock
+import com.ramish.sadiq.guard.AttentionSurfaceMissNotifier
 import com.ramish.sadiq.guard.ContextInterceptLauncher
 import com.ramish.sadiq.guard.EffectRouter
 import com.ramish.sadiq.guard.GuardControllerImpl
 import com.ramish.sadiq.guard.HomeActionImpl
 import com.ramish.sadiq.guard.InterceptLauncher
 import com.ramish.sadiq.guard.MediaDuckerImpl
+import com.ramish.sadiq.guard.SurfaceMissNotifier
+import com.ramish.sadiq.guard.SurfaceMisses
+import com.ramish.sadiq.guard.SurfaceMissesImpl
 import com.ramish.sadiq.guard.SurfacePresenterImpl
 import com.ramish.sadiq.guard.SystemClockSource
 import dagger.Binds
@@ -100,6 +104,16 @@ abstract class GuardModule {
     @Binds
     @Singleton
     abstract fun mediaDucker(impl: MediaDuckerImpl): MediaDucker
+
+    /** The record of questions no host could draw (AUDIT-5 A5-04). */
+    @Binds
+    @Singleton
+    abstract fun surfaceMisses(impl: SurfaceMissesImpl): SurfaceMisses
+
+    /** The one attention post that explains a missed question. */
+    @Binds
+    @Singleton
+    abstract fun surfaceMissNotifier(impl: AttentionSurfaceMissNotifier): SurfaceMissNotifier
 
     @Binds
     @Singleton

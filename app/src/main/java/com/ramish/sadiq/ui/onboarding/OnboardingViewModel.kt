@@ -232,9 +232,20 @@ class OnboardingViewModel @Inject constructor(
 
         val state = mutableState.value
         var index = reconcileIndex(state, steps, snapshot, preferences)
-        if (advanceFromAccessibility && !preferences.restrictedDismissed && state.currentStep == StepId.ACCESSIBILITY) {
+        if (advanceFromAccessibility && !preferences.restrictedDismissed) {
             val restricted = steps.indexOf(StepId.RESTRICTED_SETTING)
-            if (restricted >= 0 && !accessibilitySatisfied(snapshot)) index = restricted
+            val accessibility = steps.indexOf(StepId.ACCESSIBILITY)
+            when {
+                // A failed grant after the accessibility page: O5b is the likely cause, so offer it.
+                state.currentStep == StepId.ACCESSIBILITY &&
+                    restricted >= 0 && !accessibilitySatisfied(snapshot) -> index = restricted
+                // A5-05: back from App info with the switch still off. O5b used to stay on screen
+                // with "Open App info" again as its only forward action, which read as a dead end.
+                // The user is returned to the switch instead, and `restrictedDismissed` is left
+                // alone: trying the switch again is not an answer to O5b.
+                state.currentStep == StepId.RESTRICTED_SETTING &&
+                    accessibility >= 0 && !accessibilitySatisfied(snapshot) -> index = accessibility
+            }
         }
 
         if (index >= steps.size || steps.isEmpty()) {
@@ -370,7 +381,8 @@ class OnboardingViewModel @Inject constructor(
         while (index > 0 && prefs != null && isSatisfied(state.steps[index], perms, prefs)) index--
         if (index >= 0 && index < state.steps.size) {
             // Back out of O5b is an answer: stop offering the restricted-setting fix automatically.
-            // It is written down for the same reason the flag that produced the step is.
+            // It is written down for the same reason the flag that produced the step is. The visible
+            // "Back to the step" on O5b is [backToAccessibility], which deliberately does not.
             if (state.currentStep == StepId.RESTRICTED_SETTING) {
                 viewModelScope.launch { dismissRestrictedFix() }
             }
@@ -506,6 +518,29 @@ class OnboardingViewModel @Inject constructor(
             val index = steps.indexOf(StepId.RESTRICTED_SETTING)
             // No O5b in the plan means accessibility has just been granted: the plan's own reconcile
             // is already moving the wizard forward, and there is nothing to fix.
+            if (index < 0) return@launch
+            mutableState.update { it.copy(steps = steps, index = index, perms = perms) }
+            saveProgress(index)
+        }
+    }
+
+    /**
+     * O5b's own "Back to the step": returns to O5 without answering O5b (AUDIT-5 A5-05).
+     *
+     * The system Back gesture already did this, but the screen never mentioned it and the only
+     * visible alternatives were "Open App info" again or Skip, which gives up accessibility
+     * entirely. This moves the wizard to O5 and deliberately leaves `restrictedDismissed` alone:
+     * going back to try the switch is not an answer to O5b, so the step is still offered after the
+     * next failed grant.
+     */
+    fun backToAccessibility() {
+        viewModelScope.launch {
+            val prefs = settings.prefs.first()
+            val perms = permsProvider.snapshot()
+            val steps = buildSteps(perms, prefs)
+            val index = steps.indexOf(StepId.ACCESSIBILITY)
+            // No O5 in the plan means the service has just been granted: the plan's own reconcile is
+            // already moving the wizard forward, and there is nothing to go back to.
             if (index < 0) return@launch
             mutableState.update { it.copy(steps = steps, index = index, perms = perms) }
             saveProgress(index)

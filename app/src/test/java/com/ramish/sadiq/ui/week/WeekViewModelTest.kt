@@ -1,5 +1,6 @@
 package com.ramish.sadiq.ui.week
 
+import com.ramish.sadiq.R
 import com.ramish.sadiq.contract.AppInfo
 import com.ramish.sadiq.contract.ApplyResult
 import com.ramish.sadiq.contract.SettingsTarget
@@ -35,6 +36,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -331,6 +333,68 @@ class WeekViewModelTest {
         viewModel.onTurnOnUsageAccess()
 
         assertEquals(SettingsTarget.USAGE_ACCESS, launcher.opened)
+    }
+
+    /**
+     * A5-06. An approximate week is one Sadiq could not measure — `usage.isEmpty()` — so the tab must
+     * say that it cannot see, and never that no time was recorded. The two claims are different, and
+     * only one of them is true when usage access is off.
+     */
+    @Test
+    fun anApproximateWeekWithoutUsageAccessSaysItCannotSee() = runTest {
+        usage.access = false
+        history.week = weekTemplate(
+            usageDays = emptyList(),
+            prevUsageDays = emptyList(),
+            approximate = true,
+        )
+
+        val viewModel = viewModel()
+        viewModel.refresh()
+        val state = viewModel.uiState.value
+
+        assertTrue(state.approximate)
+        assertFalse(state.usageAccess)
+        assertTrue(state.topApps.isEmpty())
+        assertEquals(R.string.week_no_usage, whereItWentEmptyText(state.approximate, state.usageAccess))
+        assertNotEquals(R.string.week_no_apps, whereItWentEmptyText(state.approximate, state.usageAccess))
+    }
+
+    /**
+     * The other approximate cause: the permission is held and the week's rows have not arrived. The
+     * screen must not send him to a page where the switch is already on.
+     */
+    @Test
+    fun anApproximateWeekWithUsageAccessBlamesTheRowsNotThePermission() = runTest {
+        usage.access = true
+        history.week = weekTemplate(
+            usageDays = emptyList(),
+            prevUsageDays = emptyList(),
+            approximate = true,
+        )
+
+        val viewModel = viewModel()
+        viewModel.refresh()
+        val state = viewModel.uiState.value
+
+        assertTrue(state.approximate)
+        assertTrue(state.usageAccess)
+        assertEquals(R.string.week_no_usage_rows, whereItWentEmptyText(state.approximate, state.usageAccess))
+        assertNotEquals(R.string.week_no_usage, whereItWentEmptyText(state.approximate, state.usageAccess))
+    }
+
+    @Test
+    fun aMeasuredWeekWithNothingInItSaysNoTimeWasRecorded() = runTest {
+        // With usage access there is no "cannot see" excuse, and an empty measured week means exactly
+        // what it says.
+        history.week = weekTemplate(usageDays = emptyList(), prevUsageDays = emptyList())
+
+        val viewModel = viewModel()
+        viewModel.refresh()
+        val state = viewModel.uiState.value
+
+        assertFalse(state.approximate)
+        assertEquals(R.string.week_no_apps, whereItWentEmptyText(state.approximate, state.usageAccess))
     }
 
     private companion object {

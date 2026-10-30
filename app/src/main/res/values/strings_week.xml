@@ -20,6 +20,8 @@
     <string name="week_no_apps">No guarded app time was recorded this week.</string>
     <!-- Shown only when the week is approximate: Sadiq's own records cover the question, not the apps. -->
     <string name="week_no_usage">Sadiq can\'t see app time without usage access.</string>
+    <!-- Approximate with usage access on: the rows have not arrived yet, so the permission is not the cause. -->
+    <string name="week_no_usage_rows">Nothing measured for this week yet.</string>
     <string name="week_peak_band">Most of it between %1$s and %2$s.</string>
 
     <!-- Card 3: your choices. -->

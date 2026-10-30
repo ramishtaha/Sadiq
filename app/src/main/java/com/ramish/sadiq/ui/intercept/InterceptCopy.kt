@@ -228,8 +228,13 @@ class InterceptCopy @Inject constructor(@ApplicationContext private val context:
      * choose is a dead offer. The chips themselves submit [Choice.Stay] with their own minutes.
      */
     fun secondaryButton(ui: InterceptUi): String? = when (ui.kind) {
-        SurfaceKind.PAUSE, SurfaceKind.REFLECT, SurfaceKind.PRAYER, SurfaceKind.TIME_UP ->
+        SurfaceKind.PAUSE, SurfaceKind.REFLECT, SurfaceKind.PRAYER ->
             if (ui.stayOptionsMin.isEmpty()) null else context.getString(R.string.intercept_stay_button)
+
+        // At time's up the answer is already given: asking "Yes, I need it" again would re-open the
+        // question he just answered, so this one is a new choice and says so (addendum §1.4, A5-08).
+        SurfaceKind.TIME_UP ->
+            if (ui.stayOptionsMin.isEmpty()) null else context.getString(R.string.intercept_time_up_secondary_button)
 
         SurfaceKind.MORNING -> context.getString(R.string.intercept_morning_secondary_button)
         SurfaceKind.SLEEP_GATE -> context.getString(R.string.intercept_sleep_gate_secondary_button)

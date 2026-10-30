@@ -16,6 +16,10 @@ scripts/gradle-slot.sh ./gradlew :app:testDebugUnitTest --console=plain || FAIL=
 echo "== gradle: assembleDebug =="
 scripts/gradle-slot.sh ./gradlew :app:assembleDebug --console=plain || FAIL=1
 
+echo "== runtime classpath snapshot (for the no-network dependency backstop) =="
+mkdir -p build
+scripts/gradle-slot.sh ./gradlew :app:dependencies --configuration debugRuntimeClasspath --console=plain > build/classpath-debug.txt 2>/dev/null || true
+
 echo "== no-network guard =="
 scripts/check-no-network.sh || FAIL=1
 

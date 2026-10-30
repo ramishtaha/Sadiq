@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="onboarding_popups_headline">So Sadiq can step in instantly.</string>
-    <string name="onboarding_popups_body">HyperOS needs a special permission to show a full-screen pop-up. Without it, Sadiq may take a moment longer to ask.</string>
+    <string name="onboarding_popups_body">HyperOS needs a special permission to show a full-screen pop-up. Without it, Sadiq can\'t show the question at all: the app simply opens.</string>
     <string name="onboarding_popups_action">Open pop-up settings</string>
 
     <string name="onboarding_batterysaver_headline">Sadiq needs "No restrictions" in Battery saver.</string>
@@ -27,4 +27,9 @@
     <string name="onboarding_os_o10_path">Find Sadiq → turn on Autostart.</string>
     <string name="onboarding_os_o10_alt_path">App info → Autostart.</string>
     <string name="onboarding_os_o11_path">Swipe up from the bottom and hold to open Recents → press and hold the Sadiq card → tap the lock icon.</string>
+
+    <!-- A5-13: the two paths the wizard owed but never showed. Neither menu is renamed between
+         HyperOS 2 and 3, so both versions use the same string. -->
+    <string name="onboarding_os_o5b_path">Settings → Apps → Sadiq → ⋮ (top right) → &quot;Allow restricted settings&quot; → confirm → come back.</string>
+    <string name="onboarding_os_o12_path">Settings → Privacy protection → Special permissions → Apps with usage access → Sadiq.</string>
 </resources>

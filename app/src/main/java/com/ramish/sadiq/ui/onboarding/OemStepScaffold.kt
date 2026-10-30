@@ -40,6 +40,12 @@ import com.ramish.sadiq.ui.theme.Motion
 import com.ramish.sadiq.ui.theme.Spacing
 import com.ramish.sadiq.ui.theme.ThemeFlavor
 
+/** Room under the scrolling content for the pinned bar: three pill buttons need 56 dp more. */
+private val BOTTOM_INSET = 112.dp
+
+/** The taller bar's inset, for the one step that also offers "Back to the step" (O5b). */
+private val BOTTOM_INSET_WITH_TERTIARY = 168.dp
+
 /**
  * The canonical layout of an onboarding step: icon, headline, body, action, optional why.
  *
@@ -57,6 +63,10 @@ import com.ramish.sadiq.ui.theme.ThemeFlavor
  * @param secondaryLabel an optional second action, drawn above the primary. Self-confirm steps use
  *   it for "I set it", and permissions that can be declined use it for "Skip for now".
  * @param onSecondary what that second action does.
+ * @param tertiaryLabel an optional third action, drawn above the secondary in the quiet text style.
+ *   O5b uses it for "Back to the step", so the way back is on the screen rather than in the system
+ *   Back gesture.
+ * @param onTertiary what that third action does.
  * @param modifier for padding the whole step.
  * @param actionEnabled whether the primary action is enabled.
  * @param actionIcon an optional icon for the primary action.
@@ -78,19 +88,23 @@ fun OemStepScaffold(
     whyText: String? = null,
     secondaryLabel: String? = null,
     onSecondary: (() -> Unit)? = null,
+    tertiaryLabel: String? = null,
+    onTertiary: (() -> Unit)? = null,
     content: @Composable (() -> Unit)? = null,
 ) {
     var showWhy by remember { mutableStateOf(false) }
     // The action must stay reachable. A scrolling Column cannot give a child weight(), so the button
     // used to be pushed below a long apps list and the wizard looked like a dead end. The content
-    // scrolls; the action is pinned to the bottom.
+    // scrolls; the action is pinned to the bottom. A step with a third action (O5b) pins a taller
+    // bar, so its content is given more room to clear it.
+    val contentBottomInset = if (tertiaryLabel != null) BOTTOM_INSET_WITH_TERTIARY else BOTTOM_INSET
     Box(modifier = modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = Spacing.xl)
-            .padding(bottom = 112.dp),
+            .padding(bottom = contentBottomInset),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(Spacing.xxl))
@@ -144,6 +158,10 @@ fun OemStepScaffold(
             .padding(horizontal = Spacing.xl, vertical = Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        if (tertiaryLabel != null && onTertiary != null) {
+            TextPillButton(text = tertiaryLabel, onClick = onTertiary)
+            Spacer(Modifier.height(Spacing.sm))
+        }
         if (secondaryLabel != null && onSecondary != null) {
             TonalPillButton(text = secondaryLabel, onClick = onSecondary)
             Spacer(Modifier.height(Spacing.sm))

@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.ramish.sadiq.contract.MediaDucker
 import com.ramish.sadiq.contract.SettingsRepository
 import com.ramish.sadiq.contract.SurfacePresenter
 import com.ramish.sadiq.core.engine.InterceptUi
@@ -28,8 +29,9 @@ interface InterceptLauncher {
      * Start `InterceptActivity`.
      *
      * A refusal is logged inside the launcher rather than returned: the presenter has nothing
-     * different to do about it, because the 600 ms visibility check is what turns any failure —
-     * a thrown `SecurityException` or HyperOS dropping the launch silently — into the overlay.
+     * different to do about it, because the 600 ms visibility check is what turns any failure — a
+     * thrown `SecurityException` or HyperOS dropping the launch silently — into a recorded miss
+     * (and, while the overlay host is off, into the notification that explains it).
      */
     fun launch()
 }
@@ -63,7 +65,7 @@ class ContextInterceptLauncher @Inject constructor(
             Log.w(TAG, "intercept activity not found: ${missing.message}")
         } catch (denied: SecurityException) {
             // HyperOS refuses background activity starts unless "display pop-up windows" is allowed.
-            // The 600 ms check in the presenter turns that into the overlay fallback.
+            // The 600 ms check in the presenter turns that into the recorded miss of A5-04.
             Log.w(TAG, "intercept activity refused: ${denied.message}")
         }
     }
@@ -82,9 +84,13 @@ class ContextInterceptLauncher @Inject constructor(
  * Two hosts can show it: `InterceptActivity`, which is a real activity and therefore the fast path,
  * and an accessibility overlay, which needs no background-activity permission. The presenter always
  * tries the activity first and gives it [OVERLAY_FALLBACK_MS] to report itself visible. If it does
- * not — the launch was refused, or the activity never resumed — the presenter requests the overlay
- * and counts the fallback for the day, which is what feeds the "Allow pop-ups for faster pauses"
- * card after three of them.
+ * not, and the overlay host is enabled, the presenter asks for the overlay and counts the fallback
+ * for the day.
+ *
+ * With the overlay host off (AUDIT-4 A4-01) there is no second host at all, so a missed window is
+ * the case AUDIT-5 A5-04 was about: the reel is ducked, no question appears, and nothing says why.
+ * [missTheSurface] is that path — the duck is released, the miss is counted, and the first one of
+ * the day is explained in the shade.
  *
  * The surface is published to [InterceptStateHolder] *before* the launch, so the activity can render
  * on its first frame instead of showing a loading state (§4.4).
@@ -95,6 +101,9 @@ class SurfacePresenterImpl @Inject constructor(
     private val launcher: InterceptLauncher,
     private val settings: SettingsRepository,
     private val clock: Clock,
+    private val mediaDucker: MediaDucker,
+    private val misses: SurfaceMisses,
+    private val notifier: SurfaceMissNotifier,
     @GuardWork private val scope: CoroutineScope,
 ) : SurfacePresenter {
 
@@ -116,7 +125,10 @@ class SurfacePresenterImpl @Inject constructor(
             // There is no backup layer to ask for while the host is off (AUDIT-4 A4-01): asking would
             // leave `overlayRequested` true with nothing to draw it, and counting it would show him a
             // card promising a layer that does not exist.
-            if (!OverlayWindow.HOST_ENABLED) return@launch
+            if (!OverlayWindow.HOST_ENABLED) {
+                missTheSurface()
+                return@launch
+            }
             holder.requestOverlay()
             val now = clock.now()
             settings.bumpOverlayFallback(LogicalDays.of(now.wallMs, now.zoneId))
@@ -142,8 +154,38 @@ class SurfacePresenterImpl @Inject constructor(
         holder.reportGone()
     }
 
+    /**
+     * The question was published, no host drew it, and the backup layer is off (AUDIT-5 A5-04).
+     *
+     * Three things happen, and each one is the difference between a silent miss and a visible one:
+     *
+     * - the media duck is released, so the reel the question paused plays again instead of staying
+     *   silent under a question nobody can see;
+     * - the miss is counted for the logical day, which is what puts "The question didn't appear" on
+     *   the Sky while the condition lasts;
+     * - the first miss of the day is explained once, in the shade, on the attention channel, with a
+     *   tap that leads to the pop-ups setting.
+     *
+     * What is *not* done is as deliberate. `overlayRequested` stays false, because there is no host
+     * to draw it. No overlay fallback is counted, because no fallback happened. And the surface is
+     * left in the holder, so the next window change retries the launch rather than pretending the
+     * question was answered.
+     */
+    private fun missTheSurface() {
+        val now = clock.now()
+        val missesToday = misses.record(LogicalDays.of(now.wallMs, now.zoneId))
+        mediaDucker.release()
+        Log.w(TAG, "missed: no host drew the surface, misses today=$missesToday")
+        // One explanation a day: the shade is for the first refusal, and the card stays up until he
+        // allows pop-ups or the day ends.
+        if (missesToday == 1) notifier.questionCouldNotAppear()
+    }
+
     companion object {
         /** How long the activity has to report itself visible before the overlay is requested. */
         const val OVERLAY_FALLBACK_MS: Long = 600L
+
+        /** The one line per miss, in the same tag as the launcher that was refused. */
+        private const val TAG = "SP/Intercept"
     }
 }
