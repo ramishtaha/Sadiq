@@ -376,6 +376,80 @@ class InterceptCopy @Inject constructor(@ApplicationContext private val context:
         }
     }
 
+    // ── open anyway (§A.5, §A.6) ─────────────────────────────────────────────────────────────
+
+    /** The entry's label. Two words that name the act and nothing else. */
+    fun overrideEntryLabel(): String = context.getString(R.string.intercept_override_entry)
+
+    /**
+     * The entry's TalkBack description.
+     *
+     * It names the app, the cost ("no star") and the friction ("asks you to wait first"), because
+     * the label alone does not say that this door is slower than every other answer on the page.
+     */
+    fun overrideEntryDescription(appLabel: String): String =
+        context.getString(R.string.intercept_override_entry_description, appLabel)
+
+    /** The hold's TalkBack description: the app and the length. The button adds "hold". */
+    fun overrideHoldDescription(appLabel: String): String =
+        context.getString(R.string.intercept_override_hold_description, appLabel)
+
+    /** The confirm view's headline, naming the app he is about to open. */
+    fun overrideHeadline(appLabel: String): String =
+        context.getString(R.string.intercept_override_headline, appLabel)
+
+    /**
+     * The cost line under the confirm headline.
+     *
+     * Three lines and no fourth (§A.6): the everyday one, the Bedtime one while tonight's three
+     * quiet-night stars are still possible, and the morning one while the two quiet-morning stars
+     * are. The count is [InterceptUi.overrideStarsAtStake]; when it is null the window stars are
+     * already gone, so the line drops that claim rather than naming a zero.
+     */
+    fun overrideCostLine(ui: InterceptUi): String {
+        val lineRes = overrideCostLineRes(ui)
+        val count = ui.overrideStarsAtStake
+        return if (count == null) {
+            context.getString(lineRes)
+        } else {
+            context.getString(lineRes, count)
+        }
+    }
+
+    /** "What's pulling you there?": the header over the seven reason chips. */
+    fun overrideReasonHeader(): String = context.getString(R.string.intercept_override_reason_header)
+
+    /**
+     * The hold button's label, which doubles as its disabled reason.
+     *
+     * @param state where the wait stands, from [overrideWaitState].
+     * @param remainingMs the wait left, for the "Ready in 0:24" line.
+     */
+    fun overrideWaitLabel(state: OverrideWaitState, remainingMs: Long = 0L): String = when (state) {
+        OverrideWaitState.WAITING ->
+            context.getString(R.string.intercept_override_ready_in, formatOverrideCountdown(remainingMs))
+        OverrideWaitState.PICK_REASON -> context.getString(R.string.intercept_override_pick_reason)
+        OverrideWaitState.READY -> context.getString(R.string.intercept_override_hold)
+    }
+
+    /**
+     * The caption under the door, or null when the count is unknown.
+     *
+     * Bedtime says "one a night" because that is the whole night rule; the day surfaces name the
+     * count, so he can see how much of the two is left. A null count draws no line at all — the
+     * caption never states a number it does not have.
+     */
+    fun overrideCaption(ui: InterceptUi): String? =
+        if (ui.kind == SurfaceKind.SLEEP_GATE) {
+            context.getString(R.string.intercept_override_caption_night)
+        } else {
+            ui.overrideLeft?.let { left -> context.getString(R.string.intercept_override_caption_day, left) }
+        }
+
+    /** "Open anyway is back at 4:00 am." — the line that replaces the entry while a cap is spent. */
+    fun overrideBackAt(wallMs: Long): String =
+        context.getString(R.string.intercept_override_back_at, formatTime(wallMs))
+
     // ── reflection ───────────────────────────────────────────────────────────────────────────
 
     /**
@@ -533,6 +607,73 @@ class InterceptCopy @Inject constructor(@ApplicationContext private val context:
         /** The check-in's focus pill (plan §4.4: "Start 5-min focus"). */
         const val REFLECT_FOCUS_MIN: Int = 5
     }
+}
+
+/**
+ * The door's pure core: the wait, the three labels and the one cost line.
+ *
+ * Kept outside [InterceptCopy] on purpose. None of it needs a Context, so a plain JVM test can
+ * assert every state without an Android runtime — which is how the copy table in §A.6 stays pinned.
+ */
+
+/** Where the door's wait stands. The confirm view draws one label from this, and nothing else. */
+enum class OverrideWaitState {
+    /** The wait is running: the hold is disabled and says how long is left. */
+    WAITING,
+
+    /** The wait is over but no reason is picked: the hold is disabled and asks for one. */
+    PICK_REASON,
+
+    /** The wait is over and a reason is picked: the hold opens the door. */
+    READY
+}
+
+/**
+ * The wait left: `overrideWaitMs − (now − armedElapsed)`, never negative.
+ *
+ * Both readings are `elapsedRealtime`, the same clock the engine armed with and compares in T37, so
+ * the screen can never show a shorter wait than the engine will honour, and a recreated activity
+ * resumes the countdown where it really is instead of starting it again.
+ *
+ * @param nowElapsedMs `SystemClock.elapsedRealtime()` at the moment of the read.
+ */
+fun overrideRemainingMs(ui: InterceptUi, nowElapsedMs: Long): Long {
+    val armedAt = ui.overrideArmedElapsed ?: return 0L
+    val waitMs = ui.overrideWaitMs ?: return 0L
+    return (waitMs - (nowElapsedMs - armedAt)).coerceAtLeast(0L)
+}
+
+/** [OverrideWaitState] for [remainingMs] left, with or without a reason already picked. */
+fun overrideWaitState(remainingMs: Long, reasonPicked: Boolean): OverrideWaitState = when {
+    remainingMs > 0L -> OverrideWaitState.WAITING
+    reasonPicked -> OverrideWaitState.READY
+    else -> OverrideWaitState.PICK_REASON
+}
+
+/**
+ * The wait as the button prints it: `0:24`.
+ *
+ * Rounded up, so "0:00" is only ever the end of the wait and never a second early. The digits are
+ * Western on purpose: this is a duration, not a clock time, and the app ships one language.
+ */
+fun formatOverrideCountdown(remainingMs: Long): String {
+    val seconds = ((remainingMs.coerceAtLeast(0L) + 999L) / 1000L).toInt()
+    return String.format(Locale.US, "%d:%02d", seconds / 60, seconds % 60)
+}
+
+/**
+ * Which of the three §A.6 cost lines the confirm view states.
+ *
+ * The window stars are the fact: 3 quiet-night stars at Bedtime (E7), 2 quiet-morning stars in the
+ * morning (E8), null once either is already out of reach. A morning COOLDOWN therefore states the
+ * morning line, which is exactly the surface the door appears on when a rest is running in the
+ * morning window.
+ */
+@StringRes
+fun overrideCostLineRes(ui: InterceptUi): Int = when {
+    ui.overrideStarsAtStake == null -> R.string.intercept_override_cost_default
+    ui.kind == SurfaceKind.SLEEP_GATE -> R.string.intercept_override_cost_night
+    else -> R.string.intercept_override_cost_morning
 }
 
 /**

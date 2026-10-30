@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.WbTwilight
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.Mosque
 import androidx.compose.material3.Icon
@@ -90,22 +91,33 @@ fun AppChip(packageName: String, label: String) {
     }
 }
 
-/** The hero glyph. */
+/**
+ * The hero glyph.
+ *
+ * @param armedOverride the "Open anyway" confirm view: a hollow star in `outline` grey, because a
+ *   star that stays off is the fact of that screen and red already has one job on it (§A.5).
+ */
 @Composable
-fun InterceptGlyph(ui: InterceptUi, modifier: Modifier = Modifier) {
-    val tint = when (ui.kind) {
-        SurfaceKind.PAUSE, SurfaceKind.REFLECT, SurfaceKind.TIME_UP -> MaterialTheme.colorScheme.primary
-        SurfaceKind.SLEEP_GATE -> MaterialTheme.colorScheme.tertiary
+fun InterceptGlyph(ui: InterceptUi, armedOverride: Boolean = false, modifier: Modifier = Modifier) {
+    val tint = when {
+        armedOverride -> MaterialTheme.colorScheme.outline
+        ui.kind == SurfaceKind.PAUSE || ui.kind == SurfaceKind.REFLECT || ui.kind == SurfaceKind.TIME_UP ->
+            MaterialTheme.colorScheme.primary
+        ui.kind == SurfaceKind.SLEEP_GATE -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.onBackground
     }
-    val imageVector: ImageVector = when (ui.kind) {
-        SurfaceKind.PAUSE, SurfaceKind.REFLECT, SurfaceKind.TIME_UP -> Icons.Filled.Star
-        SurfaceKind.PRAYER -> Icons.Rounded.Mosque
-        SurfaceKind.MORNING -> Icons.Filled.WbTwilight
-        SurfaceKind.COOLDOWN -> Icons.Filled.HourglassBottom
-        SurfaceKind.SLEEP_GATE -> Icons.Filled.Star
-        SurfaceKind.FOCUS_GUARD -> Icons.Rounded.CenterFocusStrong
-        SurfaceKind.TEST -> Icons.Filled.Star
+    val imageVector: ImageVector = if (armedOverride) {
+        Icons.Outlined.StarBorder
+    } else {
+        when (ui.kind) {
+            SurfaceKind.PAUSE, SurfaceKind.REFLECT, SurfaceKind.TIME_UP -> Icons.Filled.Star
+            SurfaceKind.PRAYER -> Icons.Rounded.Mosque
+            SurfaceKind.MORNING -> Icons.Filled.WbTwilight
+            SurfaceKind.COOLDOWN -> Icons.Filled.HourglassBottom
+            SurfaceKind.SLEEP_GATE -> Icons.Filled.Star
+            SurfaceKind.FOCUS_GUARD -> Icons.Rounded.CenterFocusStrong
+            SurfaceKind.TEST -> Icons.Filled.Star
+        }
     }
     Icon(
         imageVector = imageVector,
@@ -195,6 +207,42 @@ fun ReflectCard(
                 )
             }
         }
+    }
+}
+
+/**
+ * The confirm view's middle: the cost line, the one question, and the seven reasons (§A.6).
+ *
+ * The chips are [ReflectionReason.entries] — the six check-in answers plus "I need it for
+ * something", which exists only at this door. Picking one is UI state; the hold is what sends
+ * [Choice.Override] with it, so a stray tap on the confirm view opens nothing.
+ */
+@Composable
+fun OverrideReasonCard(
+    ui: InterceptUi,
+    copy: InterceptCopy,
+    picked: ReflectionReason?,
+    onPick: (ReflectionReason) -> Unit,
+) {
+    val context = LocalContext.current
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        InterceptSubtitle(text = copy.overrideCostLine(ui))
+        Spacer(Modifier.height(Spacing.xl))
+        Text(
+            text = copy.overrideReasonHeader(),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(Spacing.md))
+        ChoiceChips(
+            options = ReflectionReason.entries,
+            selected = picked,
+            onSelect = onPick,
+            label = { reason -> context.getString(copy.reflectionChipLabelRes(reason)) }
+        )
     }
 }
 

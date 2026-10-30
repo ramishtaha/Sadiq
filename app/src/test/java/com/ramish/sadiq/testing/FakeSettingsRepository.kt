@@ -64,6 +64,16 @@ class FakeSettingsRepository(
      */
     var beforeApplyReturns: (suspend () -> Unit)? = null
 
+    /**
+     * An optional hook that runs inside [updatePrefs], after the transform and **before** the new
+     * value is published.
+     *
+     * A test uses it to hold the preference write open (`gate.await()`), which is the DataStore write
+     * a caller can outrun: what the caller reports while that write is still in flight is exactly the
+     * ordering question this hook exists to ask.
+     */
+    var beforeUpdatePrefsLands: (suspend () -> Unit)? = null
+
     /** How many overlay fallbacks have been counted per logical day. */
     val overlayFallbacks: MutableMap<Int, Int> = mutableMapOf()
 
@@ -74,7 +84,9 @@ class FakeSettingsRepository(
     }
 
     override suspend fun updatePrefs(transform: (UiPrefs) -> UiPrefs) {
-        mutablePrefs.value = transform(mutablePrefs.value)
+        val next = transform(mutablePrefs.value)
+        beforeUpdatePrefsLands?.invoke()
+        mutablePrefs.value = next
     }
 
     override suspend fun bumpOverlayFallback(logicalDay: Int): Int {

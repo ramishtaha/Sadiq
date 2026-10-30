@@ -165,4 +165,24 @@
     <string name="intercept_suggestion_one_thing">Pick one thing. Five minutes.</string>
     <string name="intercept_suggestion_text_back">Write one short reply.</string>
     <string name="intercept_suggestion_stretch">Stand up and stretch.</string>
+
+    <!-- Open anyway (§A.5, §A.6): the one discouraged door. The 10 minutes and the 3/2 stars are
+         engine facts; InterceptCopyTest fails if the copy and EngineRules ever disagree. -->
+    <string name="intercept_override_entry">Open anyway</string>
+    <string name="intercept_override_entry_description">Open %1$s anyway. No star, and it asks you to wait first.</string>
+    <string name="intercept_override_headline">Open %1$s anyway?</string>
+    <!-- The cost, in the only three sentences the table allows. -->
+    <string name="intercept_override_cost_default">You can. It\'s 10 minutes, and it won\'t light a star.</string>
+    <string name="intercept_override_cost_night">You can. It\'s 10 minutes, and tonight won\'t light its %1$d quiet-night stars.</string>
+    <string name="intercept_override_cost_morning">You can. It\'s 10 minutes, and this morning won\'t light its %1$d stars.</string>
+    <string name="intercept_override_reason_header">What\'s pulling you there?</string>
+    <!-- The hold, in its three states: waiting, waited without a reason, ready. -->
+    <string name="intercept_override_ready_in">Ready in %1$s</string>
+    <string name="intercept_override_pick_reason">Pick one above first</string>
+    <string name="intercept_override_hold">Hold to open · 10 min</string>
+    <string name="intercept_override_hold_description">Open %1$s for 10 minutes.</string>
+    <!-- The caption under the door, and the line that replaces it while a cap is spent. -->
+    <string name="intercept_override_caption_day">Open anyway · %1$d left today</string>
+    <string name="intercept_override_caption_night">Open anyway · one a night</string>
+    <string name="intercept_override_back_at">Open anyway is back at %1$s.</string>
 </resources>
