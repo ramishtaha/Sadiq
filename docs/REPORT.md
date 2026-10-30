@@ -99,7 +99,7 @@ Emulator `rafiq_test` (Android 16 / SDK 36, x86_64) on the laptop, driven over a
 
 ## Where everything is
 
-- Code: `/root/saduq` (branch `main`, HEAD `c0c6a76`)
+- Code: `/root/saduq` (branch `main`, HEAD `ebd1c0c`; the APK is built from `c0c6a76` — only docs changed after)
 - Plan + voice: `/root/starpause-brain/plans/PLAN-v2.md`, `NAME-ADDENDUM-v1.md`
 - Audits: `/root/starpause-brain/audits/AUDIT-1.md` … `AUDIT-5.md`
 - Runbook / cursor: `/root/starpause-brain/OVERNIGHT.md`, `STATE.md`
