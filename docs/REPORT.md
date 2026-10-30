@@ -29,6 +29,7 @@ Emulator `rafiq_test` (Android 16 / SDK 36, x86_64) on the laptop, driven over a
 | What | Evidence |
 |---|---|
 | Installs and launches, no crash | `adb install` → Sky renders, 6 initializers up |
+| Installs and launches **this build** | `80d2609` installed on `rafiq_test`; Sky renders (5 stars, "+4 tonight"), Guards shows 2 apps + the three modes, Week shows the first-week empty state; logcat has no `FATAL`/`AndroidRuntime` |
 | The question appears over a guarded app | `Prompts surface via InterceptActivity`; screenshot `shots/fixed-quest.png` |
 | **Bedtime copy is true** | At 04:43: *"Fajr is at 5:23 AM. That's 39 min from now."* — it used to say **24 h 39 min** (AUDIT-4 A4-08, fixed tonight) |
 | Answering works | tap "Go to sleep" → `answer: Leave` → `surface gone, finishing` → home |
