@@ -1,5 +1,6 @@
 package com.ramish.sadiq.core.engine
 
+import com.ramish.sadiq.core.economy.DefaultStarEconomy
 import com.ramish.sadiq.core.insight.ReflectionReason
 import com.ramish.sadiq.core.model.ActiveWindow
 import com.ramish.sadiq.core.model.GuardConfig
@@ -16,6 +17,8 @@ import com.ramish.sadiq.core.time.TimeSnapshot
 import java.util.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -125,6 +128,214 @@ class InvariantsTest {
     }
 
     /**
+     * A4-09 revisited for the door: whatever the engine is holding, a surface only ever offers
+      * "Open anyway" where §A.1 says it may (§A.1, §A.9).
+      *
+      * The property is enforced on every surface the walk above builds, in `checkOverrideOffer`, so
+      * this test's job is to prove the walk actually reached the door — a rule that never fires proves
+      * nothing. A violation fails the walk itself, with the step and the state in the message.
+      */
+     @Test
+     fun INV_override_never_offered_in_prayer_window_or_focus_or_with_stay_or_free_chips() {
+         val run = Run(seed = 20_261_029L, config = config)
+         run.run(10_000)
+         assertTrue(run.overrideOffers > 0, "the walk must actually reach the door")
+     }
+
+     /**
+      * No star can be traced back to an "Open anyway" grant (§A.3, E2/E3/E7).
+      *
+      * The three doors that light a star elsewhere — "I'm done" mid-grant, the HELD grace running out,
+      * and leaving a Time's up — are each run on the real economy from a live OVERRIDE grant. None of
+      * them may pay, not at the moment it happens and not three minutes later through a kindle.
+      */
+     @Test
+     fun INV_no_star_award_references_an_override_grant() {
+         for (exit in OverrideExit.entries) {
+             val (grantId, effects) = exitAnOverrideGrant(exit)
+             val awards = effects.filterIsInstance<Effect.Record>()
+                 .map { it.event }
+                 .filterIsInstance<RecordEvent.StarLit>()
+                 .map { it.award }
+             assertTrue(
+                 awards.none { it.sourceRef == grantId },
+                 "$exit lit a star on the override grant $grantId: ${awards.map { it.kind }}",
+             )
+             assertTrue(awards.isEmpty(), "$exit after an override lit ${awards.map { it.kind }}")
+         }
+     }
+
+     /**
+      * Backing out of the confirm view is the surface's own Leave, not a bonus (F-01 shape, A.3).
+      *
+      * Same state, same instant, two rigs: one leaves straight away, the other arms first. The arm is
+      * discarded with the prompt, so the two end in the same state — same phase, same grant, same
+      * kindle with the same timestamps, same economy — and the economy was asked the same question.
+      */
+     @Test
+     fun INV_arm_then_leave_equals_leave() {
+         val now = Fixtures.EVENING
+         val armed = cooldownRig(now)
+         val plain = Rig(economy = FakeStarEconomy(freeScrollMs = 0L), now = now, ctx = armed.ctx, initial = armed.state)
+
+         plain.choose(Choice.Leave, now)
+         armed.choose(Choice.ArmOverride, now)
+         armed.choose(Choice.Leave, now)
+
+         assertEquals(plain.state, armed.state)
+         assertEquals(plain.tags(), armed.tags())
+         assertEquals("LEFT_PROMPT", armed.economy.lastLeave?.name)
+         assertEquals(plain.economy.lastLeave, armed.economy.lastLeave)
+         assertEquals(plain.economy.lastPendingKindles, armed.economy.lastPendingKindles)
+         assertEquals(1, armed.state.kindles.size)
+     }
+
+     /**
+      * Two doors a day and one a night, charged when the grant starts (§A.3).
+      *
+      * The night cap is the reason the day cap alone is not enough: 04:00 falls inside Bedtime, so a
+      * door used at 03:50 and a fresh day counter at 04:10 would otherwise be two doors in one night.
+      * The ledger row is keyed by the gate's own start, so it outlives the rollover that empties the
+      * day.
+      */
+     @Test
+     fun INV_caps() {
+         // ── the day: two, then the caption names 04:00 ────────────────────────────────────────
+         val rig = cooldownRig(TestTime.at("2026-10-29T20:00"))
+         rig.openAnyway()
+         assertEquals(1, rig.state.economy.overridesUsed)
+
+         rig.tick(TestTime.at("2026-10-29T20:11"))
+         assertEquals(SurfaceKind.TIME_UP, rig.state.prompt?.kind)
+         rig.choose(Choice.Leave)
+         rig.openGuarded(at = TestTime.at("2026-10-29T20:12"))
+         assertEquals(SurfaceKind.COOLDOWN, rig.state.prompt?.kind)
+         assertEquals(1, rig.ui().overrideLeft)
+
+         rig.openAnyway()
+         assertEquals(2, rig.state.economy.overridesUsed)
+
+         rig.tick(TestTime.at("2026-10-29T20:23"))
+         assertEquals(SurfaceKind.TIME_UP, rig.state.prompt?.kind)
+         rig.choose(Choice.Leave)
+         rig.openGuarded(at = TestTime.at("2026-10-29T20:24"))
+         assertEquals(SurfaceKind.COOLDOWN, rig.state.prompt?.kind)
+         assertNull(rig.ui().overrideLeft, "the third door of a logical day must not exist")
+         assertEquals(
+             TestTime.at("2026-10-30T04:00").wallMs,
+             rig.ui().overrideBackAtWall,
+             "a spent day cap is back at the next 04:00",
+         )
+         rig.choose(Choice.ArmOverride, TestTime.at("2026-10-29T20:24"))
+         assertTrue(rig.effects.isEmpty())
+         assertEquals(2, rig.state.economy.overridesUsed)
+
+         // ── the night: one, kept across the 04:00 rollover inside the same gate ───────────────
+         val gateStart = TestTime.at("2026-10-29T22:30").wallMs
+         val gateEnd = TestTime.at("2026-10-30T05:21").wallMs
+         fun gateAt(at: TimeSnapshot, day: Int): GuardContext = Fixtures.context(
+             now = at,
+             window = Fixtures.window(kind = WindowKind.SLEEP_GATE, startWall = gateStart, endWall = gateEnd),
+             logicalDay = day,
+             today = Fixtures.prayerDay(
+                 epochDay = day,
+                 fajr = TestTime.at("2026-10-30T05:21").wallMs,
+                 nextFajr = TestTime.at("2026-10-31T05:22").wallMs,
+             ),
+         )
+
+         val before = TestTime.at("2026-10-30T03:50")
+         val night = Rig(now = before, ctx = gateAt(before, Fixtures.EPOCH_DAY))
+         night.openGuarded(context = gateAt(before, Fixtures.EPOCH_DAY))
+         assertEquals(EngineRules.OVERRIDE_NIGHT_CAP, night.ui().overrideLeft)
+         night.openAnyway()
+         assertEquals(1, night.state.ledger.single { it.kind == WindowKind.SLEEP_GATE }.overrides)
+         assertEquals(1, night.state.economy.overridesUsed)
+
+         // 04:01 — the grant is spent after the day has rolled; he leaves the Time's up and comes back.
+         val after = TestTime.at("2026-10-30T04:10")
+         val afterCtx = gateAt(after, Fixtures.EPOCH_DAY + 1)
+         night.tick(TestTime.at("2026-10-30T04:01"), context = afterCtx)
+         assertEquals(SurfaceKind.TIME_UP, night.state.prompt?.kind)
+         assertEquals(0, night.state.economy.overridesUsed, "the day counter rolled at 04:00")
+         night.choose(Choice.Leave, TestTime.at("2026-10-30T04:01"), context = afterCtx)
+
+         night.openGuarded(at = after, context = afterCtx)
+         assertEquals(SurfaceKind.SLEEP_GATE, night.state.prompt?.kind)
+         assertNull(night.ui().overrideLeft, "the night cap did not roll with the day")
+         assertEquals(
+             TestTime.at("2026-10-30T05:21").wallMs,
+             night.ui().overrideBackAtWall,
+             "a spent night cap is back at Fajr",
+         )
+         assertEquals(1, night.state.ledger.single { it.kind == WindowKind.SLEEP_GATE }.overrides)
+         night.choose(Choice.ArmOverride, after, context = afterCtx)
+         assertTrue(night.effects.isEmpty())
+         assertEquals(0, night.state.economy.overridesUsed)
+     }
+
+     /** The three "I'm done" doors an override must not pay for. */
+     private enum class OverrideExit { DONE_EARLY, HELD_TIMEOUT, TIME_UP_LEAVE }
+
+     /**
+      * Opens the door on the real economy and then leaves the ten minutes by [exit].
+      *
+      * @return the grant id and every effect of the walk, so a star can be looked for where it lands.
+      */
+     private fun exitAnOverrideGrant(exit: OverrideExit): Pair<String, List<Effect>> {
+         val now = Fixtures.EVENING
+         val ctx = Fixtures.context(now = now)
+         val engine = GuardEngine(DefaultStarEconomy(), FakeReflectionPolicy(), FakeSuggester())
+         val resting = Fixtures.state(
+             now = now,
+             rest = Fixtures.rest(remainingMs = 120 * MIN, lastAccountedElapsed = now.elapsedMs),
+             budget = Fixtures.budget(remainingMs = 0L, lastGuardedUseElapsed = now.elapsedMs),
+         )
+         val effects = mutableListOf<Effect>()
+         var state = resting
+
+         fun step(input: GuardInput, at: TimeSnapshot, context: GuardContext = ctx) {
+             val transition = engine.reduce(state, input, at, context)
+             state = transition.state
+             effects += transition.effects
+         }
+
+         step(GuardInput.ForegroundChanged(Fixtures.INSTAGRAM.packageName), now)
+         step(GuardInput.Chose(Choice.ArmOverride), now)
+         val opened = now.afterMs(EngineRules.OVERRIDE_WAIT_MS)
+         step(GuardInput.Chose(Choice.Override(ReflectionReason.NEED)), opened)
+         val grant = state.grant
+         assertNotNull(grant)
+         assertEquals(GrantKind.OVERRIDE, grant.kind)
+
+         val midGrant = opened.afterMs(MIN)
+         when (exit) {
+             OverrideExit.DONE_EARLY -> {
+                 step(GuardInput.Chose(Choice.DoneEarly), midGrant)
+                 assertEquals(Phase.IDLE, state.phase)
+             }
+             OverrideExit.HELD_TIMEOUT -> {
+                 step(GuardInput.ScreenOff, midGrant)
+                 assertEquals(Phase.HELD, state.phase)
+                 step(GuardInput.Tick, midGrant.afterMs(EngineRules.HOLD_GRACE_MS))
+                 assertEquals(Phase.IDLE, state.phase)
+             }
+             OverrideExit.TIME_UP_LEAVE -> {
+                 step(GuardInput.Tick, opened.afterMs(EngineRules.OVERRIDE_MS))
+                 assertEquals(SurfaceKind.TIME_UP, state.prompt?.kind)
+                 step(GuardInput.Chose(Choice.Leave), opened.afterMs(EngineRules.OVERRIDE_MS))
+                 assertEquals(Phase.IDLE, state.phase)
+             }
+         }
+         // Three quiet minutes plus the grace: a kindle nobody expected must not light late either.
+         step(GuardInput.Tick, opened.afterMs(EngineRules.OVERRIDE_MS + EngineRules.HOLD_GRACE_MS + 5 * MIN))
+         assertEquals(0, state.economy.litLeave)
+         assertEquals(0, state.economy.litTotal)
+         assertTrue(state.kindles.isEmpty())
+         return grant.id to effects
+     }
+
+     /**
      * One deterministic walk through the state machine.
      *
      * @property seed the only source of variation.
@@ -150,6 +361,9 @@ class InvariantsTest {
         var lastTags: List<String> = emptyList()
         var surfacesShown: Int = 0
         var leavesTaken: Int = 0
+
+        /** How many surfaces offered the door: the property below is worthless if the walk never sees one. */
+        var overrideOffers: Int = 0
 
         private var surfaceOnScreen: Boolean = false
 
@@ -247,7 +461,7 @@ class InvariantsTest {
             }
         }
 
-        private fun randomChoice(): Choice = when (rng.nextInt(14)) {
+        private fun randomChoice(): Choice = when (rng.nextInt(16)) {
             0 -> Choice.Leave
             1 -> Choice.Stay(listOf(2, 5, 10, 15, 25)[rng.nextInt(5)])
             2 -> Choice.Resume
@@ -261,6 +475,8 @@ class InvariantsTest {
             10 -> Choice.WindDown
             11 -> Choice.BackToFocus
             12 -> Choice.EndFocus
+            13 -> Choice.ArmOverride
+            14 -> Choice.Override(ReflectionReason.entries[rng.nextInt(ReflectionReason.entries.size)])
             else -> Choice.Leave
         }
 
@@ -359,6 +575,16 @@ class InvariantsTest {
             if (s.budget.remainingMs !in 0..full) fail("budget ${s.budget.remainingMs} outside 0..$full at $where")
             if (s.rest != null && s.rest.remainingMs < 0L) fail("negative rest at $where")
 
+            // Both caps are charged at the moment a grant starts, so no walk can overrun them (§A.3).
+            if (s.economy.overridesUsed > EngineRules.OVERRIDE_DAY_CAP) {
+                fail("${s.economy.overridesUsed} overrides in logical day ${s.economy.logicalDay} at $where")
+            }
+            for (row in s.ledger) {
+                if (row.overrides > EngineRules.OVERRIDE_NIGHT_CAP) {
+                    fail("${row.overrides} overrides in the ${row.kind} window ${row.startWall} at $where")
+                }
+            }
+
             // "A PRAYER-window open never yields COOLDOWN, SLEEP_GATE, FOCUS_GUARD or MORNING": every
             // resolution of a guarded open inside a prayer window must come out soft.
             val guardedOpen = input is GuardInput.ForegroundChanged &&
@@ -395,7 +621,39 @@ class InvariantsTest {
                         fail("a prayer-window ${ui.kind} offering $over min at $where")
                     }
                 }
+                checkOverrideOffer(ui, where)
             }
+        }
+
+        /**
+         * §A.1 as a property: wherever the door is offered, the surface also offers no yes of its own,
+         * no free scroll, no focus and no prayer window — and the day and night caps have room.
+         *
+         * Every field is read from the surface itself, because the UI is what he can press; a rule
+         * the engine keeps privately but forgets to withhold would still be a door on screen.
+         */
+        private fun checkOverrideOffer(ui: InterceptUi, where: String) {
+            if (ui.overrideArmedElapsed != null && ui.overrideLeft == null) {
+                fail("a confirm view with no door behind it on ${ui.kind} at $where")
+            }
+            if (ui.overrideBackAtWall != null && ui.overrideLeft != null) {
+                fail("a back-at caption beside a door that is offered on ${ui.kind} at $where")
+            }
+            if (ui.overrideLeft == null) return
+            overrideOffers += 1
+
+            if (ui.kind !in InvariantsTest.OVERRIDE_KINDS) fail("the door on ${ui.kind} at $where")
+            if (ui.testMode) fail("the door in the self-test at $where")
+            if (ctx.window.kind == WindowKind.PRAYER) fail("the door at prayer time at $where")
+            if (ui.focusRemainingMs != null) fail("the door during Focus at $where")
+            if (ui.stayOptionsMin.isNotEmpty()) {
+                fail("the door beside Stay chips ${ui.stayOptionsMin} at $where")
+            }
+            if (ui.freeScrollOptionsMin.isNotEmpty()) {
+                fail("the door beside free scroll chips ${ui.freeScrollOptionsMin} at $where")
+            }
+            if (ui.overrideWaitMs == null) fail("a door with no stated wait at $where")
+            if ((ui.overrideLeft ?: 0) <= 0) fail("a door with no uses left at $where")
         }
 
         private companion object {
@@ -413,6 +671,13 @@ class InvariantsTest {
             SurfaceKind.MORNING,
             SurfaceKind.PAUSE,
             SurfaceKind.REFLECT,
+            SurfaceKind.TIME_UP,
+        )
+
+        /** The only surfaces that may ever show the door (§A.1). */
+        val OVERRIDE_KINDS: Set<SurfaceKind> = setOf(
+            SurfaceKind.COOLDOWN,
+            SurfaceKind.SLEEP_GATE,
             SurfaceKind.TIME_UP,
         )
     }

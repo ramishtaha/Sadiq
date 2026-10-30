@@ -201,16 +201,22 @@ object Accounting {
     /**
      * Counts a grant or a quick need against the protected window it happened in, so the economy can
      * decide E7 / E8 when the window ends (§3.8).
+     *
+     * An "Open anyway" grant is counted twice on purpose: once in `grants`, because any non-QUICK
+     * grant disqualifies a quiet window, and once in `overrides`, because the night cap is charged by
+     * the window's own `startWall` and has to outlive the 04:00 rollover that empties the day
+     * counter (A.3).
      */
     fun countProtectedUse(
         state: EngineState,
         ctx: GuardContext,
         grants: Int,
         quickNeeds: Int,
+        overrides: Int = 0,
     ): EngineState {
         val kind = ctx.window.kind
         if (kind != WindowKind.SLEEP_GATE && kind != WindowKind.MORNING) return state
-        if (grants == 0 && quickNeeds == 0) return state
+        if (grants == 0 && quickNeeds == 0 && overrides == 0) return state
         val start = ctx.window.startWall ?: return state
         val index = state.ledger.indexOfFirst { it.kind == kind && it.startWall == start }
         val ledger =
@@ -221,11 +227,16 @@ object Accounting {
                     grants = grants,
                     quickNeeds = quickNeeds,
                     reconciledUsage = false,
+                    overrides = overrides,
                 )
             } else {
                 val row = state.ledger[index]
                 state.ledger.toMutableList().also {
-                    it[index] = row.copy(grants = row.grants + grants, quickNeeds = row.quickNeeds + quickNeeds)
+                    it[index] = row.copy(
+                        grants = row.grants + grants,
+                        quickNeeds = row.quickNeeds + quickNeeds,
+                        overrides = row.overrides + overrides,
+                    )
                 }
             }
         return state.copy(ledger = ledger)

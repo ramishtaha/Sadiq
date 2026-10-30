@@ -55,5 +55,46 @@ class PaletteTest {
         assertTrue(DARK_SURFACE > DARK_BACKGROUND)
     }
 
+    @Test
+    fun theCostRedIsReadableOnEveryPage() {
+        // §A.5: "Open anyway" is the one red that is not an error, so its readability is pinned here next
+        // to the values it is drawn with. Ratios are WCAG 2.1, rounded to the two decimals the plan states.
+        assertEquals(5.64, contrastRatio(LIGHT_ERROR, LIGHT_BACKGROUND), 0.005, "light page")
+        assertEquals(11.03, contrastRatio(DARK_ERROR, DARK_BACKGROUND), 0.005, "Bedtime page")
+        assertEquals(5.51, contrastRatio(SEPIA_ERROR, SEPIA_BACKGROUND), 0.005, "sepia page")
+
+        // The hold's sweep is the same red over errorContainer, so that pair has to stay legible too.
+        assertTrue(contrastRatio(LIGHT_ERROR, LIGHT_ERROR_CONTAINER) >= AA_NORMAL_TEXT)
+        assertTrue(contrastRatio(DARK_ERROR, DARK_ERROR_CONTAINER) >= AA_NORMAL_TEXT)
+        assertTrue(contrastRatio(SEPIA_ERROR, SEPIA_ERROR_CONTAINER) >= AA_NORMAL_TEXT)
+    }
+
+    /** WCAG 2.1 contrast ratio between two opaque `0xAARRGGBB` colours. */
+    private fun contrastRatio(foreground: Long, background: Long): Double {
+        val first = relativeLuminance(foreground)
+        val second = relativeLuminance(background)
+        val lighter = maxOf(first, second)
+        val darker = minOf(first, second)
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    /** WCAG 2.1 relative luminance: linearise each channel, then weight them. */
+    private fun relativeLuminance(argb: Long): Double {
+        val red = linearise((argb shr 16) and 0xFF)
+        val green = linearise((argb shr 8) and 0xFF)
+        val blue = linearise(argb and 0xFF)
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    }
+
+    private fun linearise(channel: Long): Double {
+        val srgb = channel / 255.0
+        return if (srgb <= 0.03928) srgb / 12.92 else Math.pow((srgb + 0.055) / 1.055, 2.4)
+    }
+
     private fun assertTrue(condition: Boolean) = kotlin.test.assertTrue(condition)
+
+    private companion object {
+        /** WCAG AA for normal-size text. */
+        const val AA_NORMAL_TEXT: Double = 4.5
+    }
 }

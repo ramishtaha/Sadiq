@@ -38,7 +38,7 @@ data class HoldTick(
  * The rule the UI promises is exact: progress is `elapsed / holdMs`, a release before the window
  * resets to zero, and a release after it keeps the completed state (the action has already run).
  * Frame time is supplied by `withFrameNanos` in the button, so a dropped frame shortens neither the
- * hold nor the animation.
+ * hold nor the animation. A disabled hold never completes at all.
  */
 class HoldProgress(val holdMs: Long = HOLD_TO_CONFIRM_MS) {
 
@@ -58,8 +58,12 @@ class HoldProgress(val holdMs: Long = HOLD_TO_CONFIRM_MS) {
     /**
      * Adds [deltaMs] to [state]. A non-positive delta is ignored, so a clock that steps backwards
      * cannot rewind a fill that is already on screen. A completed hold is never re-advanced.
+     *
+     * [enabled] is the pill's own guard: a disabled button never completes, so a ticker that outlives
+     * the disable (the countdown ended, a reason chip was cleared) cannot fire the confirmed action.
      */
-    fun advance(state: HoldState, deltaMs: Long): HoldTick {
+    fun advance(state: HoldState, deltaMs: Long, enabled: Boolean = true): HoldTick {
+        if (!enabled) return HoldTick(state = state, justCompleted = false)
         if (state.completed) {
             return HoldTick(state = state, justCompleted = false)
         }

@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 // Sadiq keeps Rafiq's palette. Deep teal-green primary (low arousal, Islamic resonance without
 // religious text), warm sand page, warm near-white cards so cards lift off the page, muted gold
-// tertiary for sparing accents. Red is reserved strictly for genuine errors.
+// tertiary for sparing accents. Red is reserved for genuine errors and for the cost of opening anyway.
 // Hex values live as consts so PaletteTest can assert them without a Compose runtime.
 
 // ---- Light ----

@@ -76,7 +76,11 @@ class FakeStarEconomy(
 
     override fun rollover(day: EconomyDay, logicalDay: Int): EconomyDay {
         calls += "rollover"
-        return day.copy(logicalDay = logicalDay)
+        // Mirror DefaultStarEconomy: a new logical day starts every counter at zero. The old copy
+        // kept `freeUsedMs` and the new `overridesUsed`, so a test could pass a cap it should have
+        // lost at 04:00.
+        if (logicalDay <= day.logicalDay) return day
+        return EconomyDay(logicalDay = logicalDay)
     }
 
     override fun peekLeave(

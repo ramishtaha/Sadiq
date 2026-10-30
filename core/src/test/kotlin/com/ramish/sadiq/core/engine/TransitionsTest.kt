@@ -1,6 +1,7 @@
 package com.ramish.sadiq.core.engine
 
 import com.ramish.sadiq.core.economy.DefaultStarEconomy
+import com.ramish.sadiq.core.economy.EconomyRules
 import com.ramish.sadiq.core.economy.LeaveDecision
 import com.ramish.sadiq.core.insight.ReflectionReason
 import com.ramish.sadiq.core.model.GuardContext
@@ -15,6 +16,7 @@ import com.ramish.sadiq.core.testing.TestTime
 import com.ramish.sadiq.core.time.TimeSnapshot
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -840,6 +842,319 @@ class TransitionsTest {
         assertEquals(SurfaceKind.PAUSE, rig.state.prompt?.kind)
     }
 
+    // ── T36 / T37 / T37x / T21 ────────────────────────────────────────────────────────────────
+
+    /**
+     * The door exists on the wall that has no yes of its own: a rest, with free scroll already gone.
+     * Arming switches the surface to its confirm view and starts the wait, and that is all it does.
+     */
+    @Test
+    fun T36_arm_on_cooldown_without_free_scroll() {
+        val rig = cooldownRig()
+        val entered = rig.ui()
+        assertEquals(SurfaceKind.COOLDOWN, entered.kind)
+        assertEquals(EngineRules.OVERRIDE_DAY_CAP, entered.overrideLeft)
+        assertEquals(EngineRules.OVERRIDE_WAIT_MS, entered.overrideWaitMs)
+        assertNull(entered.overrideArmedElapsed)
+        assertNull(entered.overrideStarsAtStake)
+        assertNull(entered.overrideBackAtWall)
+
+        val before = rig.state.economy
+        val armedAt = rig.now
+        rig.choose(Choice.ArmOverride)
+
+        assertEquals(listOf("Update(COOLDOWN)"), rig.tags())
+        assertEquals(armedAt.elapsedMs, rig.state.prompt?.overrideArmedElapsed)
+        assertEquals(armedAt.elapsedMs, rig.update().overrideArmedElapsed)
+        assertEquals(Phase.PROMPTING, rig.state.phase)
+        // Arming is not opening: no grant, no record, no economy call, no cap (T36).
+        assertNull(rig.state.grant)
+        assertEquals(before, rig.state.economy)
+        assertTrue(rig.effects.none { it is Effect.Record })
+    }
+
+    /** Free scroll is the earned way out and is always easier, so the door never competes with it. */
+    @Test
+    fun T36_ignored_when_free_scroll_is_offered() {
+        val rig = cooldownRig(freeScrollMs = 15 * MIN)
+        assertEquals(SurfaceKind.COOLDOWN, rig.state.prompt?.kind)
+        assertTrue(rig.ui().freeScrollOptionsMin.isNotEmpty())
+        assertNull(rig.ui().overrideLeft)
+
+        rig.choose(Choice.ArmOverride)
+        assertTrue(rig.effects.isEmpty())
+        assertNull(rig.state.prompt?.overrideArmedElapsed)
+    }
+
+    /** "Yes, I need it" is already the honest yes; a second one next to it would make it pointless. */
+    @Test
+    fun T36_ignored_on_PAUSE() {
+        val rig = Rig()
+        rig.openGuarded()
+        assertEquals(SurfaceKind.PAUSE, rig.state.prompt?.kind)
+        assertNull(rig.ui().overrideLeft)
+
+        rig.choose(Choice.ArmOverride)
+        assertTrue(rig.effects.isEmpty())
+        assertNull(rig.state.prompt?.overrideArmedElapsed)
+    }
+
+    @Test
+    fun T36_ignored_on_REFLECT() {
+        val rig = Rig(reflection = FakeReflectionPolicy(reflect = true))
+        rig.openGuarded()
+        assertEquals(SurfaceKind.REFLECT, rig.state.prompt?.kind)
+        assertNull(rig.ui().overrideLeft)
+
+        rig.choose(Choice.ArmOverride)
+        assertTrue(rig.effects.isEmpty())
+        assertNull(rig.state.prompt?.overrideArmedElapsed)
+    }
+
+    /** Never at prayer time: there is nothing to get past, and Stay is always offered (§A.4). */
+    @Test
+    fun T36_ignored_on_PRAYER() {
+        val now = Fixtures.EVENING
+        val prayer = Fixtures.context(now = now, window = Fixtures.maghribWindow(now = now.wallMs))
+        val rig = Rig(now = now, ctx = prayer)
+        rig.openGuarded(context = prayer)
+        assertEquals(SurfaceKind.PRAYER, rig.state.prompt?.kind)
+        assertNull(rig.ui().overrideLeft)
+
+        rig.choose(Choice.ArmOverride, context = prayer)
+        assertTrue(rig.effects.isEmpty())
+        assertNull(rig.state.prompt?.overrideArmedElapsed)
+    }
+
+    /** "Hold for 2 minutes" is always there in the morning, so the door is not. */
+    @Test
+    fun T36_ignored_on_MORNING() {
+        val now = Fixtures.EVENING
+        val morning = Fixtures.context(
+            now = now,
+            window = Fixtures.window(
+                kind = WindowKind.MORNING,
+                startWall = now.wallMs - 10 * MIN,
+                endWall = now.wallMs + 20 * MIN,
+            ),
+        )
+        val rig = Rig(now = now, ctx = morning)
+        rig.openGuarded(context = morning)
+        assertEquals(SurfaceKind.MORNING, rig.state.prompt?.kind)
+        assertNull(rig.ui().overrideLeft)
+
+        rig.choose(Choice.ArmOverride, context = morning)
+        assertTrue(rig.effects.isEmpty())
+        assertNull(rig.state.prompt?.overrideArmedElapsed)
+    }
+
+    /** "End focus" is one tap. A door under it would pay focus stars for scrolling. */
+    @Test
+    fun T36_ignored_on_FOCUS_GUARD() {
+        val now = Fixtures.EVENING
+        val focusing = Fixtures.state(now = now, focus = Fixtures.focus(lastAccountedElapsed = now.elapsedMs))
+        val rig = Rig(now = now, initial = focusing)
+        rig.openGuarded()
+        assertEquals(SurfaceKind.FOCUS_GUARD, rig.state.prompt?.kind)
+        assertNull(rig.ui().overrideLeft)
+
+        rig.choose(Choice.ArmOverride)
+        assertTrue(rig.effects.isEmpty())
+        assertNull(rig.state.prompt?.overrideArmedElapsed)
+    }
+
+    /** The self-test proves the interception, not the door. */
+    @Test
+    fun T36_ignored_on_TEST() {
+        val rig = Rig()
+        rig.step(GuardInput.SelfTest("com.example.news", "health"))
+        rig.openGuarded(pkg = "com.example.news")
+        assertEquals(SurfaceKind.TEST, rig.state.prompt?.kind)
+        assertNull(rig.ui().overrideLeft)
+
+        rig.choose(Choice.ArmOverride)
+        assertTrue(rig.effects.isEmpty())
+        assertNull(rig.state.prompt?.overrideArmedElapsed)
+    }
+
+    /** A rest inside the morning window has the door, and it states the two morning stars (§A.3). */
+    @Test
+    fun T36_morning_rest_states_the_two_morning_stars() {
+        val now = TestTime.at("2026-10-30T06:40")
+        val morning = Fixtures.context(
+            now = now,
+            window = Fixtures.window(
+                kind = WindowKind.MORNING,
+                startWall = TestTime.at("2026-10-30T05:41").wallMs,
+                endWall = TestTime.at("2026-10-30T09:30").wallMs,
+            ),
+        )
+        val rig = cooldownRig(now = now, ctx = morning)
+
+        assertEquals(SurfaceKind.COOLDOWN, rig.ui().kind)
+        assertEquals(EconomyRules.PROTECTED_MORNING_STARS, rig.ui().overrideStarsAtStake)
+        assertEquals(EngineRules.OVERRIDE_WAIT_MS, rig.ui().overrideWaitMs)
+
+        // It is a grant inside the morning, so the ledger records it and the two stars are gone.
+        rig.openAnyway()
+        assertEquals(1, rig.state.ledger.single { it.kind == WindowKind.MORNING }.grants)
+        assertEquals(
+            0,
+            rig.state.ledger.single { it.kind == WindowKind.MORNING }.overrides,
+            "the morning has no cap of its own",
+        )
+    }
+
+    /** T37: thirty seconds of waiting, and then the ten minutes. */
+    @Test
+    fun T37_opens_after_30s() {
+        val rig = cooldownRig()
+        val opened = rig.openAnyway(ReflectionReason.TIRED)
+
+        assertEquals(Phase.GRANTED, rig.state.phase)
+        val grant = rig.state.grant
+        assertNotNull(grant)
+        assertEquals(GrantKind.OVERRIDE, grant.kind)
+        assertEquals(EngineRules.OVERRIDE_MS, grant.grantedMs)
+        assertEquals(
+            listOf(
+                "Dismiss",
+                "Release",
+                "Live(GrantRunning)",
+                "Record(Open:OVERRIDE)",
+                "Record(Reflected)",
+            ),
+            rig.tags(),
+        )
+        assertEquals(1, opened.economy.overridesUsed)
+
+        // The record carries the surface, the grant and a decision time that includes the wait (A.7).
+        val open = rig.effects.filterIsInstance<Effect.Record>()
+            .map { it.event }
+            .filterIsInstance<RecordEvent.Open>()
+            .single()
+        assertEquals(OpenOutcome.OVERRIDE, open.outcome)
+        assertEquals(SurfaceKind.COOLDOWN, open.surface)
+        assertEquals(grant.id, open.grantId)
+        assertEquals(EngineRules.OVERRIDE_WAIT_MS, open.decisionMs)
+
+        val reflected = rig.effects.filterIsInstance<Effect.Record>()
+            .map { it.event }
+            .filterIsInstance<RecordEvent.Reflected>()
+            .single()
+        assertEquals(ReflectionReason.TIRED, reflected.reason)
+        assertEquals(Fixtures.INSTAGRAM.packageName, reflected.packageName)
+    }
+
+    /** T37 at Bedtime: the slowest ladder, the rarest cap, and the three stars named in numbers. */
+    @Test
+    fun T37_bedtime_needs_60s() {
+        val gateStart = TestTime.at("2026-10-29T22:30").wallMs
+        val gateEnd = TestTime.at("2026-10-30T05:21").wallMs
+        val now = TestTime.at("2026-10-29T23:10")
+        val gate = Fixtures.context(
+            now = now,
+            window = Fixtures.window(kind = WindowKind.SLEEP_GATE, startWall = gateStart, endWall = gateEnd),
+        )
+        val rig = Rig(now = now, ctx = gate)
+        rig.openGuarded(context = gate)
+
+        val door = rig.ui()
+        assertEquals(SurfaceKind.SLEEP_GATE, door.kind)
+        assertEquals(EngineRules.OVERRIDE_NIGHT_CAP, door.overrideLeft)
+        assertEquals(EngineRules.OVERRIDE_WAIT_NIGHT_MS, door.overrideWaitMs)
+        assertEquals(EconomyRules.QUIET_NIGHT_STARS, door.overrideStarsAtStake)
+
+        rig.choose(Choice.ArmOverride, context = gate)
+        // 59 s is not 60: the night door does not open a second early.
+        rig.choose(Choice.Override(ReflectionReason.TIRED), now.afterMs(59_000), context = gate)
+        assertEquals(Phase.PROMPTING, rig.state.phase)
+        assertNull(rig.state.grant)
+
+        rig.choose(Choice.Override(ReflectionReason.TIRED), now.afterMs(60_000), context = gate)
+        assertEquals(Phase.GRANTED, rig.state.phase)
+        assertEquals(GrantKind.OVERRIDE, rig.state.grant?.kind)
+        assertEquals(EngineRules.OVERRIDE_MS, rig.state.grant?.grantedMs)
+
+        val row = rig.state.ledger.single { it.kind == WindowKind.SLEEP_GATE }
+        assertEquals(1, row.grants)
+        assertEquals(1, row.overrides)
+        assertEquals(1, rig.state.economy.overridesUsed)
+    }
+
+    @Test
+    fun T37_rejected_at_29s() {
+        val rig = cooldownRig()
+        val armedAt = rig.now
+        rig.choose(Choice.ArmOverride)
+        rig.choose(Choice.Override(ReflectionReason.BORED), armedAt.afterMs(29_000))
+
+        assertEquals(Phase.PROMPTING, rig.state.phase)
+        assertNull(rig.state.grant)
+        assertTrue(rig.effects.isEmpty(), "a disabled button is not a corrected screen")
+        assertEquals(0, rig.state.economy.overridesUsed)
+        assertEquals(armedAt.elapsedMs, rig.state.prompt?.overrideArmedElapsed, "the wait keeps running")
+    }
+
+    @Test
+    fun T37_rejected_unarmed() {
+        val rig = cooldownRig()
+        rig.choose(Choice.Override(ReflectionReason.BORED), rig.now.afterMs(5 * MIN))
+
+        assertEquals(Phase.PROMPTING, rig.state.phase)
+        assertNull(rig.state.grant)
+        assertTrue(rig.effects.isEmpty())
+        assertEquals(0, rig.state.economy.overridesUsed)
+    }
+
+    /**
+     * The adhan lands mid-wait. The surface becomes the prayer surface and the arm goes with it, so a
+     * hold that arrives at the same instant opens nothing and is not a second interception either.
+     */
+    @Test
+    fun T37_rejected_when_adhan_arrives_while_armed() {
+        val rig = cooldownRig()
+        val armedAt = rig.now
+        rig.choose(Choice.ArmOverride)
+        assertEquals(armedAt.elapsedMs, rig.state.prompt?.overrideArmedElapsed)
+
+        val at = armedAt.afterMs(EngineRules.OVERRIDE_WAIT_MS)
+        val prayer = Fixtures.context(now = at, window = Fixtures.maghribWindow(now = at.wallMs))
+        rig.choose(Choice.Override(ReflectionReason.TIRED), at, context = prayer)
+
+        assertEquals(SurfaceKind.PRAYER, rig.state.prompt?.kind)
+        assertNull(rig.state.prompt?.overrideArmedElapsed)
+        assertNull(rig.state.grant)
+        assertEquals(Phase.PROMPTING, rig.state.phase)
+        assertEquals(0, rig.state.economy.overridesUsed)
+        assertEquals(listOf("Update(PRAYER)"), rig.tags())
+    }
+
+    /** The amend T21: an override that runs out comes back as a Time's up that names it. */
+    @Test
+    fun T21_anOverrideGrantExpiresIntoATimeUpThatNamesIt() {
+        val rig = cooldownRig()
+        val openedAt = rig.now.afterMs(EngineRules.OVERRIDE_WAIT_MS)
+        rig.openAnyway()
+        rig.tick(openedAt.afterMs(EngineRules.OVERRIDE_MS))
+
+        assertEquals(SurfaceKind.TIME_UP, rig.state.prompt?.kind)
+        assertEquals(
+            listOf("Duck", "Show(TIME_UP)", "Live(None)", "Record(GrantClosed:EXPIRED)"),
+            rig.tags(),
+        )
+        val ui = rig.ui()
+        assertEquals(GrantKind.OVERRIDE, ui.timeUpKind)
+        assertTrue(ui.stayOptionsMin.isEmpty(), "an override grants no extra minutes")
+        assertFalse(ui.leaveEarnsStar, "the Time's up after an override lights nothing")
+        // The door appears again only if a cap allows it — one of the two is gone.
+        assertEquals(1, ui.overrideLeft)
+
+        rig.choose(Choice.Leave)
+        assertEquals("KEPT_WORD", rig.economy.lastLeave?.name)
+        assertEquals(Phase.IDLE, rig.state.phase)
+    }
+
     // ── A4-04 ─────────────────────────────────────────────────────────────────────────────────
 
     /**
@@ -932,6 +1247,53 @@ class TransitionsTest {
 
 /** One minute in milliseconds, for readable state fixtures. */
 internal const val MIN: Long = 60_000L
+
+/**
+ * The same clocks advanced by [ms] milliseconds.
+ *
+ * [TestTime.after] moves in minutes, and the door's wait is measured in seconds: 29 s must fail and
+ * 30 s must open, so the tests need a clock that can be moved by a fraction of a minute.
+ */
+internal fun TimeSnapshot.afterMs(ms: Long): TimeSnapshot =
+    copy(wallMs = wallMs + ms, elapsedMs = elapsedMs + ms)
+
+/**
+ * A rig standing on the daytime wall of §A.1: a rest, with free scroll already spent.
+ *
+ * The rest is long enough that a grant or two cannot end it, so the surface stays COOLDOWN for the
+ * whole test; the budget is at zero because that is what a running rest means.
+ *
+ * @param now the clocks.
+ * @param ctx the context, when the test is inside a window.
+ * @param freeScrollMs the free-scroll balance the fake economy reports.
+ * @param restMs how much rest is left.
+ */
+internal fun cooldownRig(
+    now: TimeSnapshot = Fixtures.EVENING,
+    ctx: GuardContext = Fixtures.context(now = now),
+    freeScrollMs: Long = 0L,
+    restMs: Long = 120 * MIN,
+): Rig {
+    val resting = Fixtures.state(
+        now = now,
+        rest = Fixtures.rest(remainingMs = restMs, lastAccountedElapsed = now.elapsedMs),
+        budget = Fixtures.budget(remainingMs = 0L, lastGuardedUseElapsed = now.elapsedMs),
+    )
+    val rig = Rig(economy = FakeStarEconomy(freeScrollMs = freeScrollMs), now = now, ctx = ctx, initial = resting)
+    rig.openGuarded(at = now, context = ctx)
+    return rig
+}
+
+/**
+ * Arms the door and completes the hold once the wait the surface asked for has passed.
+ *
+ * @param reason the chip the confirm view sends with the hold.
+ */
+internal fun Rig.openAnyway(reason: ReflectionReason = ReflectionReason.TIRED): EngineState {
+    choose(Choice.ArmOverride)
+    val wait = update().overrideWaitMs ?: error("the door was not offered on ${state.prompt?.kind}")
+    return choose(Choice.Override(reason), now.afterMs(wait))
+}
 
 /** A config with both fixture apps guarded, for the two-app transitions (T18, T22). */
 private val BOTH_APPS: com.ramish.sadiq.core.model.GuardConfig =

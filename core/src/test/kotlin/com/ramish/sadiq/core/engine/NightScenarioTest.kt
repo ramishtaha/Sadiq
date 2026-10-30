@@ -1,16 +1,22 @@
 package com.ramish.sadiq.core.engine
 
+import com.ramish.sadiq.core.economy.DefaultStarEconomy
 import com.ramish.sadiq.core.economy.EconomyRules
 import com.ramish.sadiq.core.economy.LeaveDecision
 import com.ramish.sadiq.core.economy.NoStarReason
 import com.ramish.sadiq.core.economy.StarKind
+import com.ramish.sadiq.core.insight.ReflectionReason
 import com.ramish.sadiq.core.model.GuardContext
 import com.ramish.sadiq.core.model.WindowKind
+import com.ramish.sadiq.core.testing.FakeReflectionPolicy
 import com.ramish.sadiq.core.testing.FakeStarEconomy
+import com.ramish.sadiq.core.testing.FakeSuggester
 import com.ramish.sadiq.core.testing.Fixtures
 import com.ramish.sadiq.core.testing.TestTime
+import com.ramish.sadiq.core.time.TimeSnapshot
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -162,5 +168,132 @@ class NightScenarioTest {
         assertTrue(rig.effects.isEmpty())
         assertEquals(Phase.IDLE, rig.state.phase)
         assertEquals(0, rig.state.kindles.size)
+    }
+
+    /**
+     * A door opened at 23:10 is the one thing that can take the night's three stars without taking
+     * any of his time back (§A.3, E7).
+     *
+     * The ledger is what proves it: the override is a grant inside the gate, so when the window is
+     * handed to the economy at Fajr it is not quiet and pays nothing. The same night without the door
+     * is the control, and it pays three.
+     */
+    @Test
+    fun Night_override_2310_no_quiet_night_at_fajr() {
+        val gateStart = TestTime.at("2026-10-29T22:30").wallMs
+        val gateEnd = TestTime.at("2026-10-30T05:21").wallMs
+        val engine = GuardEngine(DefaultStarEconomy(), FakeReflectionPolicy(), FakeSuggester())
+
+        val now = TestTime.at("2026-10-29T23:10")
+        val gate = Fixtures.context(
+            now = now,
+            window = Fixtures.window(kind = WindowKind.SLEEP_GATE, startWall = gateStart, endWall = gateEnd),
+        )
+        var state = engine.initial(now, gate)
+        state = engine.reduce(state, GuardInput.ForegroundChanged(Fixtures.INSTAGRAM.packageName), now, gate).state
+        assertEquals(SurfaceKind.SLEEP_GATE, state.prompt?.kind)
+        assertEquals(EconomyRules.QUIET_NIGHT_STARS, uiOf(state, now, gate).overrideStarsAtStake)
+
+        state = engine.reduce(state, GuardInput.Chose(Choice.ArmOverride), now, gate).state
+        val openedAt = now.afterMs(EngineRules.OVERRIDE_WAIT_NIGHT_MS)
+        state = engine.reduce(
+            state,
+            GuardInput.Chose(Choice.Override(ReflectionReason.TIRED)),
+            openedAt,
+            gate,
+        ).state
+        assertEquals(GrantKind.OVERRIDE, state.grant?.kind)
+        val row = state.ledger.single { it.kind == WindowKind.SLEEP_GATE }
+        assertEquals(1, row.grants)
+        assertEquals(1, row.overrides)
+
+        // 23:21 — the ten minutes are gone, and he takes himself home. No star either way.
+        val spent = engine.reduce(state, GuardInput.Tick, openedAt.afterMs(EngineRules.OVERRIDE_MS), gate)
+        assertEquals(SurfaceKind.TIME_UP, spent.state.prompt?.kind)
+        val home = engine.reduce(spent.state, GuardInput.Chose(Choice.Leave), openedAt.afterMs(EngineRules.OVERRIDE_MS), gate)
+        assertTrue(home.effects.none { it is Effect.Record && it.event is RecordEvent.StarLit })
+        assertEquals(0, home.state.economy.litLeave)
+
+        // 05:25 — the gate ended at Fajr, and the night it just had was not quiet.
+        val fajr = fajrContext(gateStart, gateEnd)
+        val atFajr = engine.reduce(home.state, GuardInput.Tick, TestTime.at("2026-10-30T05:25"), fajr)
+        assertTrue(
+            atFajr.effects.none { it is Effect.Record && it.event is RecordEvent.StarLit },
+            "an override spends the quiet night: ${atFajr.effects.map { it.tag() }}",
+        )
+        assertEquals(0, atFajr.state.economy.litTotal)
+        assertTrue(atFajr.state.ledger.isEmpty(), "the window was handed to the economy and dropped")
+
+        // The control: the same Fajr with no override in the ledger pays the three stars.
+        val quiet = Fixtures.state(now = TestTime.at("2026-10-30T05:25"), logicalDay = Fixtures.EPOCH_DAY + 1)
+        val paid = engine.reduce(quiet, GuardInput.Tick, TestTime.at("2026-10-30T05:25"), fajr)
+        assertEquals(EconomyRules.QUIET_NIGHT_STARS, paid.state.economy.litTotal)
+        assertEquals(
+            EconomyRules.QUIET_NIGHT_STARS,
+            paid.effects.count { it is Effect.Record && it.event is RecordEvent.StarLit },
+        )
+    }
+
+    /**
+     * One quick minute is still a quiet night (E7 allows one); two are not, and the door stops naming
+     * stars it can no longer cost. It is still offered — the night cap is what bounds it.
+     */
+    @Test
+    fun Night_override_after_two_quick_minutes_shows_no_stars_at_stake() {
+        val gateStart = TestTime.at("2026-10-29T22:30").wallMs
+        val gateEnd = TestTime.at("2026-10-30T05:21").wallMs
+        val now = TestTime.at("2026-10-29T22:40")
+        val gate = Fixtures.context(
+            now = now,
+            window = Fixtures.window(kind = WindowKind.SLEEP_GATE, startWall = gateStart, endWall = gateEnd),
+        )
+
+        val oneQuick = Fixtures.state(
+            now = now,
+            ledger = listOf(Fixtures.ledgerEntry(kind = WindowKind.SLEEP_GATE, startWall = gateStart, quickNeeds = 1)),
+        )
+        val quietRig = Rig(now = now, ctx = gate, initial = oneQuick)
+        quietRig.openGuarded(context = gate)
+        assertEquals(SurfaceKind.SLEEP_GATE, quietRig.ui().kind)
+        assertEquals(EconomyRules.QUIET_NIGHT_STARS, quietRig.ui().overrideStarsAtStake)
+
+        val twoQuick = Fixtures.state(
+            now = now,
+            ledger = listOf(Fixtures.ledgerEntry(kind = WindowKind.SLEEP_GATE, startWall = gateStart, quickNeeds = 2)),
+        )
+        val noisyRig = Rig(now = now, ctx = gate, initial = twoQuick)
+        noisyRig.openGuarded(context = gate)
+        assertEquals(SurfaceKind.SLEEP_GATE, noisyRig.ui().kind)
+        assertNull(noisyRig.ui().overrideStarsAtStake)
+        assertEquals(EngineRules.OVERRIDE_NIGHT_CAP, noisyRig.ui().overrideLeft)
+    }
+
+    /** The Fajr that closed the gate: the prayer window at 05:21, and the span the economy is owed. */
+    private fun fajrContext(gateStart: Long, gateEnd: Long): GuardContext = Fixtures.context(
+        now = TestTime.at("2026-10-30T05:25"),
+        window = Fixtures.window(
+            kind = WindowKind.PRAYER,
+            startWall = TestTime.at("2026-10-30T05:21").wallMs,
+            endWall = TestTime.at("2026-10-30T05:41").wallMs,
+        ),
+        logicalDay = Fixtures.EPOCH_DAY + 1,
+        today = Fixtures.prayerDay(
+            epochDay = Fixtures.EPOCH_DAY + 1,
+            fajr = TestTime.at("2026-10-30T05:21").wallMs,
+            nextFajr = TestTime.at("2026-10-31T05:22").wallMs,
+        ),
+        endedProtected = listOf(Fixtures.span(kind = WindowKind.SLEEP_GATE, startWall = gateStart, endWall = gateEnd)),
+    )
+
+    /** The surface the engine would build for [state], without needing an effect to carry it. */
+    private fun uiOf(state: EngineState, now: TimeSnapshot, ctx: GuardContext): InterceptUi {
+        val prompt = state.prompt ?: error("no prompt on screen")
+        val facts = UiFacts(
+            freeScrollAvailableMs = 0L,
+            quickNeedsLeft = EngineRules.QUICK_NEEDS_PER_DAY,
+            reflectionOpens = 0,
+            leaveEarnsStar = false,
+        )
+        return InterceptUiBuilder.build(state, prompt, ctx, now, facts, suggestion = null)
     }
 }

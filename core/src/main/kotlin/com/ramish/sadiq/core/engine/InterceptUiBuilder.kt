@@ -1,11 +1,14 @@
 package com.ramish.sadiq.core.engine
 
+import com.ramish.sadiq.core.economy.EconomyRules
+import com.ramish.sadiq.core.economy.StarKind
 import com.ramish.sadiq.core.insight.ReflectionReason
 import com.ramish.sadiq.core.insight.Suggestion
 import com.ramish.sadiq.core.insight.SuggestionContext
 import com.ramish.sadiq.core.model.GuardContext
 import com.ramish.sadiq.core.model.PrayerDay
 import com.ramish.sadiq.core.model.WindowKind
+import com.ramish.sadiq.core.time.LogicalDays
 import com.ramish.sadiq.core.time.TimeSnapshot
 
 /**
@@ -48,6 +51,10 @@ object InterceptUiBuilder {
         val freeChips = freeScrollOptions(kind, state, ctx, facts)
         val quickAllowed = SurfaceResolver.allowsQuickNeed(kind, restActive, facts.quickNeedsLeft)
         val grant = state.grant
+        // "Open anyway" (§A.1). A door that is not offered is null in every field except the one
+        // that names when it comes back, so the surface cannot render a button the engine would
+        // refuse to honour.
+        val door = overrideOffer(state, prompt, ctx, facts)
 
         return InterceptUi(
             kind = kind,
@@ -92,7 +99,156 @@ object InterceptUiBuilder {
             forceDark = kind == SurfaceKind.SLEEP_GATE,
             testMode = prompt.testMode,
             mode = ctx.config.mode,
+            overrideLeft = if (door) overrideLeft(state, ctx) else null,
+            overrideWaitMs = if (door) overrideWaitMs(ctx) else null,
+            // The confirm view only exists for a door that is actually openable: an arm left over
+            // from a door that has gone is not something to draw (§A.1).
+            overrideArmedElapsed = prompt.overrideArmedElapsed.takeIf { door },
+            overrideStarsAtStake = if (door) overrideStarsAtStake(state, ctx) else null,
+            overrideBackAtWall = overrideBackAtWall(state, prompt, ctx, now, facts),
         )
+    }
+
+    // ── "Open anyway" (§A.1–A.4) ────────────────────────────────────────────────────────────────
+
+    /** The surfaces that may ever show the door. Every other one has a yes of its own. */
+    private val OVERRIDE_KINDS: Set<SurfaceKind> = setOf(
+        SurfaceKind.COOLDOWN,
+        SurfaceKind.SLEEP_GATE,
+        SurfaceKind.TIME_UP,
+    )
+
+    /**
+     * Whether "Open anyway" may be offered on this surface, right now.
+     *
+     * The rule of §A.1, in one place, read by the reducer's guards (T36/T37) and by [build], so the
+     * button on screen is always a door the engine will open. The door is a last resort: it appears
+     * only where the surface offers no "yes" of its own — a rest, Bedtime, or a Time's up with
+     * nothing left to choose — never at prayer time, never during Focus, never in the self-test, and
+     * never while either cap is spent.
+     *
+     * @param state the engine state the surface belongs to.
+     * @param prompt the question on screen.
+     * @param ctx the window and settings at this instant.
+     * @param facts the economy balances, needed because free scroll is what the door defers to.
+     */
+    fun overrideOffer(state: EngineState, prompt: Prompt, ctx: GuardContext, facts: UiFacts): Boolean =
+        overrideEligible(state, prompt, ctx, facts) &&
+            overrideDayLeft(state) > 0 &&
+            overrideNightLeft(state, ctx) > 0
+
+    /**
+     * Everything [overrideOffer] requires except the two caps.
+     *
+     * Split out because a spent cap is not "no door here": it is the one case that shows a caption
+     * instead of the button (§A.6), and that caption needs the reason the button is missing.
+     */
+    private fun overrideEligible(
+        state: EngineState,
+        prompt: Prompt,
+        ctx: GuardContext,
+        facts: UiFacts,
+    ): Boolean {
+        if (prompt.kind !in OVERRIDE_KINDS) return false
+        if (prompt.testMode) return false
+        if (state.focus != null) return false
+        if (ctx.window.kind == WindowKind.PRAYER) return false
+        // A surface with a yes of its own keeps it alone: a second yes would make the first one
+        // pointless (A.1).
+        if (stayOptions(prompt.kind, state, ctx).isNotEmpty()) return false
+        if (freeScrollOptions(prompt.kind, state, ctx, facts).isNotEmpty()) return false
+        return true
+    }
+
+    /** Uses left today, counting the current Bedtime's own cap. Null is [build]'s job, not this one. */
+    private fun overrideLeft(state: EngineState, ctx: GuardContext): Int =
+        minOf(overrideDayLeft(state), overrideNightLeft(state, ctx))
+
+    private fun overrideDayLeft(state: EngineState): Int =
+        (EngineRules.OVERRIDE_DAY_CAP - state.economy.overridesUsed).coerceAtLeast(0)
+
+    /**
+     * The night cap only exists inside a Bedtime window; everywhere else it cannot bind, so it must
+     * report "unlimited" rather than its own limit — returning the cap made every daytime surface
+     * report `min(dayLeft, 1)` and show one use left when there were two.
+     */
+    private fun overrideNightLeft(state: EngineState, ctx: GuardContext): Int {
+        if (ctx.window.kind != WindowKind.SLEEP_GATE) return Int.MAX_VALUE
+        val used = ledgerRow(state, ctx)?.overrides ?: 0
+        return (EngineRules.OVERRIDE_NIGHT_CAP - used).coerceAtLeast(0)
+    }
+
+    /**
+     * How long the door asks him to wait before the hold: 30 s by day, 60 s at Bedtime (§A.2).
+     *
+     * The reducer measures the wait with the same function, so the countdown on screen and the
+     * guard that opens the grant can never disagree.
+     */
+    fun overrideWaitMs(ctx: GuardContext): Long =
+        if (ctx.window.kind == WindowKind.SLEEP_GATE) {
+            EngineRules.OVERRIDE_WAIT_NIGHT_MS
+        } else {
+            EngineRules.OVERRIDE_WAIT_MS
+        }
+
+    /**
+     * The wall time the door is back, when a cap is what is stopping it, else null (§A.6).
+     *
+     * The day cap resets at the next 04:00, which is the start of the next logical day; the night cap
+     * resets at Fajr, which is when the Bedtime window ends. A spent night cap is checked first
+     * because it is spent at most once and always binds until the gate is over — including across
+     * the 04:00 rollover that empties the day counter in the middle of the same night.
+     */
+    fun overrideBackAtWall(
+        state: EngineState,
+        prompt: Prompt,
+        ctx: GuardContext,
+        now: TimeSnapshot,
+        facts: UiFacts,
+    ): Long? {
+        if (!overrideEligible(state, prompt, ctx, facts)) return null
+        if (overrideNightLeft(state, ctx) <= 0) return nextFajrAt(ctx.today, now.wallMs)
+        if (overrideDayLeft(state) <= 0) return LogicalDays.startWall(state.economy.logicalDay + 1, now.zoneId)
+        return null
+    }
+
+    /**
+     * The window stars the door would cost: tonight's 3 quiet-night stars, this morning's 2 (§A.3).
+     *
+     * Stated only while they are still possible. Once the ledger says the window is not quiet — a
+     * grant, two quick minutes, a reconciled use, or an earlier override — they are already gone, and
+     * naming them would be a second charge for the same thing.
+     */
+    fun overrideStarsAtStake(state: EngineState, ctx: GuardContext): Int? {
+        val kind = when (ctx.window.kind) {
+            WindowKind.SLEEP_GATE -> StarKind.QUIET_NIGHT
+            WindowKind.MORNING -> StarKind.PROTECTED_MORNING
+            else -> return null
+        }
+        return if (isQuiet(state, ctx)) fullWindowStars(kind) else null
+    }
+
+    private fun fullWindowStars(kind: StarKind): Int = when (kind) {
+        StarKind.QUIET_NIGHT -> EconomyRules.QUIET_NIGHT_STARS
+        else -> EconomyRules.PROTECTED_MORNING_STARS
+    }
+
+    /**
+     * E7/E8's quiet test, read on the surface side for the same ledger row the economy will judge:
+     * no grant, at most one quick minute, no reconciled usage. An override counts in `grants`, so
+     * after one the window is no longer quiet — which is exactly the disclosure rule above.
+     */
+    private fun isQuiet(state: EngineState, ctx: GuardContext): Boolean {
+        val entry = ledgerRow(state, ctx) ?: return true
+        return entry.grants == 0 &&
+            entry.quickNeeds <= EconomyRules.QUIET_MAX_QUICK_NEEDS &&
+            !entry.reconciledUsage
+    }
+
+    /** The ledger row of the window in force, or null when the window has nothing recorded yet. */
+    private fun ledgerRow(state: EngineState, ctx: GuardContext): LedgerEntry? {
+        val start = ctx.window.startWall ?: return null
+        return state.ledger.firstOrNull { it.kind == ctx.window.kind && it.startWall == start }
     }
 
     /**

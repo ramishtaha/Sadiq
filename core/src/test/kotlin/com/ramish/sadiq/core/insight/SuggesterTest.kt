@@ -437,6 +437,31 @@ class SuggesterTest {
     }
 
     @Test
+    fun Suggester_need_has_no_line() {
+        // "I need it" is the override's own reason, and the confirm view already states the cost. The
+        // suggester has no response line for it and offers no action, so the context answers exactly as it
+        // would with no answer at all (OV-2).
+        val need = suggester.suggest(context(reason = ReflectionReason.NEED))
+
+        assertEquals(suggester.suggest(context(reason = null)), need, "NEED adds no line")
+        assertEquals(SuggestionAction.NONE, need.action, "NEED offers no action")
+        assertNull(need.minutes)
+
+        // Even at night, where Tired would offer "Wind down": NEED is silence, not a nudge.
+        val gate = ActiveWindow(kind = WindowKind.SLEEP_GATE, startWall = NOW - HOUR, endWall = NOW + 6 * HOUR)
+        val needAtNight = suggester.suggest(
+            context(window = gate, nextFajrWall = NOW + 6 * HOUR, reason = ReflectionReason.NEED),
+        )
+
+        assertEquals(SuggestionKey.SLEEP_FAJR, needAtNight.key)
+        assertEquals(SuggestionAction.NONE, needAtNight.action)
+        assertEquals(
+            suggester.suggest(context(window = gate, nextFajrWall = NOW + 6 * HOUR, reason = null)),
+            needAtNight,
+        )
+    }
+
+    @Test
     fun everySuggestionIsStableAcrossRepeatedCalls() {
         val ctx = context(
             window = ActiveWindow(kind = WindowKind.SLEEP_GATE, startWall = NOW - HOUR, endWall = NOW + 6 * HOUR),

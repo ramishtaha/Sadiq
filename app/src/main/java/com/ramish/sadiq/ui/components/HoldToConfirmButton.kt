@@ -1,6 +1,8 @@
 package com.ramish.sadiq.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,6 +23,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -36,15 +39,31 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
+ * Which ink a [HoldToConfirmButton] holds in.
+ *
+ * [DEFAULT] is the app's own voice: a `surfaceVariant` pill that fills `primaryContainer`. [COST] is the
+ * one place a hold costs something — "Open anyway" (§A.5): transparent fill, a 1 dp `error` outline and
+ * `error` text, with an `errorContainer` sweep while the finger stays down. It is a red *line*, never a
+ * filled red container, and it never tints the page.
+ */
+enum class HoldTone { DEFAULT, COST }
+
+/**
  * The deliberate answer: a tonal pill that only confirms after a sustained press.
  *
- * A `primaryContainer` fill sweeps left to right over [holdMs] while the finger stays down; letting
- * go early empties it. Completion fires [HapticFeedbackType.Confirm] once and calls [onConfirm] once.
+ * The tone's sweep fills left to right over [holdMs] while the finger stays down; letting go early
+ * empties it. Completion fires one haptic and calls [onConfirm] once — [HapticFeedbackType.Confirm] for
+ * [HoldTone.DEFAULT], [HapticFeedbackType.LongPress] for [HoldTone.COST], because opening anyway is not a
+ * confirmation of anything and must not borrow Leave's tick. A disabled button never completes, whatever
+ * the ticker is doing.
+ *
  * There is no decorative animation to disable, so [com.ramish.sadiq.ui.theme.LocalReduceMotion] does
  * not change the timing: the fill is a progress readout, not an entrance.
  *
  * TalkBack cannot press and hold reliably, so the node exposes a custom action "Confirm" and an
  * equivalent long-click label, which is what produces the "Double-tap and hold" hint.
+ *
+ * @param tone [HoldTone.COST] for the discouraged door; the default is the everyday pill.
  */
 @Composable
 fun HoldToConfirmButton(
@@ -53,7 +72,8 @@ fun HoldToConfirmButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     holdMs: Long = HOLD_TO_CONFIRM_MS,
-    fillWidth: Boolean = true
+    fillWidth: Boolean = true,
+    tone: HoldTone = HoldTone.DEFAULT
 ) {
     val scheme = MaterialTheme.colorScheme
     val hold = remember(holdMs) { HoldProgress(holdMs) }
@@ -63,9 +83,31 @@ fun HoldToConfirmButton(
     val gestureScope = rememberCoroutineScope()
     val fraction = hold.fraction(state)
 
+    val cost = tone == HoldTone.COST
+    // COST is smaller than the primary above it: 48 dp, a line rather than a block (§A.5).
+    val minHeight = if (cost) 48.dp else 56.dp
+    val fill: Color = when {
+        cost -> Color.Transparent
+        enabled -> scheme.surfaceVariant
+        else -> scheme.onSurface.copy(alpha = 0.12f)
+    }
+    val border: BorderStroke? = when {
+        !cost -> null
+        enabled -> BorderStroke(1.dp, scheme.error)
+        else -> BorderStroke(1.dp, scheme.outlineVariant)
+    }
+    val ink = when {
+        cost && enabled -> scheme.error
+        cost -> scheme.outline
+        enabled -> scheme.onSurface
+        else -> scheme.onSurface.copy(alpha = 0.38f)
+    }
+    val sweep = if (cost) scheme.errorContainer else scheme.primaryContainer
+    val completionHaptic = if (cost) HapticFeedbackType.LongPress else HapticFeedbackType.Confirm
+
     val confirmed: () -> Boolean = {
         if (enabled) {
-            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            haptics.performHapticFeedback(completionHaptic)
             currentOnConfirm()
             true
         } else {
@@ -76,9 +118,10 @@ fun HoldToConfirmButton(
     Box(
         modifier = modifier
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
-            .heightIn(min = 56.dp)
+            .heightIn(min = minHeight)
             .clip(CircleShape)
-            .background(if (enabled) scheme.surfaceVariant else scheme.onSurface.copy(alpha = 0.12f))
+            .background(fill)
+            .then(if (border != null) Modifier.border(border, CircleShape) else Modifier)
             .pointerInput(holdMs, enabled) {
                 if (!enabled) return@pointerInput
                 detectTapGestures(
@@ -95,12 +138,13 @@ fun HoldToConfirmButton(
                                 val elapsedMs = (frameNanos - startFrameNanos) / 1_000_000L
                                 val tick = hold.advance(
                                     state = held,
-                                    deltaMs = elapsedMs - held.elapsedMs
+                                    deltaMs = elapsedMs - held.elapsedMs,
+                                    enabled = enabled,
                                 )
                                 held = tick.state
                                 state = held
                                 if (tick.justCompleted) {
-                                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                                    haptics.performHapticFeedback(completionHaptic)
                                     currentOnConfirm()
                                     break
                                 }
@@ -126,14 +170,14 @@ fun HoldToConfirmButton(
                     modifier = Modifier
                         .fillMaxWidth(fraction)
                         .fillMaxHeight()
-                        .background(scheme.primaryContainer)
+                        .background(sweep)
                 )
             }
         }
         Text(
             text = text,
             style = MaterialTheme.typography.labelLarge,
-            color = if (enabled) scheme.onSurface else scheme.onSurface.copy(alpha = 0.38f),
+            color = ink,
             modifier = Modifier.padding(horizontal = Spacing.xl)
         )
     }
@@ -160,5 +204,32 @@ private fun HoldToConfirmButtonDarkPreview() {
 private fun HoldToConfirmButtonSepiaPreview() {
     ComponentPreview(ThemeFlavor.SEPIA) {
         HoldToConfirmButton(text = "Hold for one minute · 2 left", onConfirm = {})
+    }
+}
+
+@Preview(name = "HoldToConfirmButton COST · Light", widthDp = 360, showBackground = true)
+@Composable
+private fun HoldToConfirmButtonCostLightPreview() {
+    ComponentPreview(ThemeFlavor.LIGHT) {
+        HoldToConfirmButton(text = "Hold to open · 10 min", onConfirm = {}, tone = HoldTone.COST)
+        HoldToConfirmButton(text = "Pick one above first", onConfirm = {}, enabled = false, tone = HoldTone.COST)
+    }
+}
+
+@Preview(name = "HoldToConfirmButton COST · Dark", widthDp = 360, showBackground = true)
+@Composable
+private fun HoldToConfirmButtonCostDarkPreview() {
+    ComponentPreview(ThemeFlavor.DARK) {
+        HoldToConfirmButton(text = "Hold to open · 10 min", onConfirm = {}, tone = HoldTone.COST)
+        HoldToConfirmButton(text = "Pick one above first", onConfirm = {}, enabled = false, tone = HoldTone.COST)
+    }
+}
+
+@Preview(name = "HoldToConfirmButton COST · Sepia", widthDp = 360, showBackground = true)
+@Composable
+private fun HoldToConfirmButtonCostSepiaPreview() {
+    ComponentPreview(ThemeFlavor.SEPIA) {
+        HoldToConfirmButton(text = "Hold to open · 10 min", onConfirm = {}, tone = HoldTone.COST)
+        HoldToConfirmButton(text = "Pick one above first", onConfirm = {}, enabled = false, tone = HoldTone.COST)
     }
 }

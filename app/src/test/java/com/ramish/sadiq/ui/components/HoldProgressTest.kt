@@ -86,6 +86,29 @@ class HoldProgressTest {
     }
 
     @Test
+    fun disabled_never_completes() {
+        // The COST hold is disabled until the countdown is over and a reason is picked. No amount of
+        // elapsed time may fire it, so a ticker that outlives the disable cannot open anything.
+        var state = hold.start()
+        repeat(30) {
+            val tick = hold.advance(state, deltaMs = 100L, enabled = false)
+            assertFalse(tick.justCompleted, "a disabled hold never reports completion")
+            state = tick.state
+        }
+        assertEquals(0L, state.elapsedMs, "a disabled hold does not even fill")
+        assertFalse(state.completed)
+        assertClose(0f, hold.fraction(state))
+
+        // One long step past the window is still nothing.
+        val jumped = hold.advance(hold.start(), deltaMs = 60_000L, enabled = false)
+        assertFalse(jumped.justCompleted)
+        assertFalse(jumped.state.completed)
+
+        // The same step on an enabled hold does complete, so the guard is the flag and nothing else.
+        assertTrue(hold.advance(hold.start(), deltaMs = 2_000L, enabled = true).justCompleted)
+    }
+
+    @Test
     fun theCompletionFrameIsInclusive() {
         // 1 999 ms is still holding; one more millisecond confirms.
         val almost = hold.advance(hold.start(), deltaMs = 1_999L)

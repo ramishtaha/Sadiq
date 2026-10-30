@@ -1,5 +1,6 @@
 package com.ramish.sadiq.core.economy
 
+import com.ramish.sadiq.core.engine.EngineRules
 import com.ramish.sadiq.core.engine.FocusState
 import com.ramish.sadiq.core.engine.Grant
 import com.ramish.sadiq.core.engine.GrantKind
@@ -144,6 +145,27 @@ class StarEconomyTest {
         }
     }
 
+    @Test
+    fun E2_never_for_override() {
+        // Giving back the ten discouraged minutes is not a kept word: the door was already discouraged,
+        // and its grant is not the promise E2 pays for (§A.3).
+        val override: Grant = overrideGrant()
+        val start: EconomyDay = freshDay()
+
+        val (after, decision) = economy.onLeave(
+            start, LeaveKind.KEPT_WORD, WindowKind.NONE, at(15, 0), 0, override,
+        )
+        assertEquals(NoStarReason.NOT_ELIGIBLE, assertIs<LeaveDecision.None>(decision).reason)
+        assertEquals(start, after, "a refused leave touches nothing")
+        assertEquals(0, after.litLeave)
+
+        // The only difference from a paid leave is the grant's kind, so a STAY of the same shape pays.
+        val stay: Grant = grant(GrantKind.STAY, grantedMs = 10 * MINUTE, consumedMs = 10 * MINUTE)
+        assertIs<LeaveDecision.Kindle>(
+            economy.onLeave(freshDay(), LeaveKind.KEPT_WORD, WindowKind.NONE, at(15, 0), 0, stay).second,
+        )
+    }
+
     // ── E3 DONE_EARLY ───────────────────────────────────────────────────────────────────────────────
 
     @Test
@@ -199,6 +221,30 @@ class StarEconomyTest {
             )
             assertEquals(NoStarReason.NOT_ELIGIBLE, assertIs<LeaveDecision.None>(decision).reason)
         }
+    }
+
+    @Test
+    fun E3_never_for_override() {
+        // "Open anyway" then "I'm done" is the farming route A.3 rules out: the remainder on an OVERRIDE
+        // grant is real, but E3 only ever pays out of a STAY, so the door cannot mint a star.
+        val override: Grant = overrideGrant(consumedMs = MINUTE)
+        val start: EconomyDay = freshDay()
+
+        val (after, decision) = economy.onLeave(
+            start, LeaveKind.DONE_EARLY, WindowKind.NONE, at(15, 0), 0, override,
+        )
+        assertEquals(NoStarReason.NOT_ELIGIBLE, assertIs<LeaveDecision.None>(decision).reason)
+        assertEquals(start, after, "no star, no lit count, no leave watermark")
+        assertEquals(0, after.litTotal)
+
+        // The same remainder on a STAY lights at once, so the grant kind is the whole of the refusal.
+        val stay: Grant = grant(GrantKind.STAY, grantedMs = 10 * MINUTE, consumedMs = MINUTE)
+        assertEquals(
+            StarKind.DONE_EARLY,
+            assertIs<LeaveDecision.LitNow>(
+                economy.onLeave(freshDay(), LeaveKind.DONE_EARLY, WindowKind.NONE, at(15, 0), 0, stay).second,
+            ).award.kind,
+        )
     }
 
     // ── E4 / E5 / E6 FOCUS ──────────────────────────────────────────────────────────────────────────
@@ -329,6 +375,39 @@ class StarEconomyTest {
 
         assertTrue(withGrant.second.isEmpty(), "a stay in the gate is not a quiet night")
         assertTrue(withUsage.second.isEmpty(), "reconciled guarded usage is not a quiet night")
+    }
+
+    @Test
+    fun E7_lost_with_one_override() {
+        // The night he opened anyway: the engine books the OVERRIDE as a grant on the gate's ledger entry
+        // (A.3), so the window is no longer quiet and its three stars are gone. Not a fine — a consequence,
+        // and the only place the door costs anything (§A.0).
+        val span: ProtectedSpan = ProtectedSpan(WindowKind.SLEEP_GATE, at(22, 30), at(22, 30) + 6 * HOUR + 51 * MINUTE)
+        val fajr: Long = at(22, 30) + 6 * HOUR + 55 * MINUTE
+
+        val (afterUsed, awardsUsed) = economy.onProtectedWindowEnded(
+            day = freshDay(),
+            span = span,
+            entry = ledger(WindowKind.SLEEP_GATE, grants = 1, overrides = 1),
+            nowWall = fajr,
+            logicalDay = DAY,
+        )
+
+        assertTrue(awardsUsed.isEmpty(), "one override loses the quiet-night stars")
+        assertEquals(0, afterUsed.litTotal, "the day records nothing for a night that was not quiet")
+
+        // The same night with the door untouched still pays all three, so the loss is the override itself.
+        val (afterQuiet, quietAwards) = economy.onProtectedWindowEnded(
+            day = freshDay(),
+            span = span,
+            entry = ledger(WindowKind.SLEEP_GATE, grants = 0, quickNeeds = 1, overrides = 0),
+            nowWall = fajr,
+            logicalDay = DAY,
+        )
+
+        assertEquals(3, quietAwards.size)
+        assertTrue(quietAwards.all { award -> award.kind == StarKind.QUIET_NIGHT })
+        assertEquals(3, afterQuiet.litTotal)
     }
 
     @Test
@@ -711,6 +790,13 @@ internal fun grant(
     firstPackage = PKG,
 )
 
+/** The ten discouraged minutes of "Open anyway" (§A.3), as the engine hands them out. */
+internal fun overrideGrant(consumedMs: Long = 0L): Grant = grant(
+    kind = GrantKind.OVERRIDE,
+    grantedMs = EngineRules.OVERRIDE_MS,
+    consumedMs = consumedMs,
+)
+
 internal fun kindle(
     leave: LeaveKind,
     id: String = "k1",
@@ -738,10 +824,12 @@ internal fun ledger(
     grants: Int = 0,
     quickNeeds: Int = 0,
     reconciled: Boolean = false,
+    overrides: Int = 0,
 ): LedgerEntry = LedgerEntry(
     kind = kind,
     startWall = at(22, 30),
     grants = grants,
     quickNeeds = quickNeeds,
     reconciledUsage = reconciled,
+    overrides = overrides,
 )

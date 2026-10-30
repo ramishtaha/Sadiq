@@ -101,6 +101,44 @@ class AccountingTest {
         assertEquals(10 * MIN, quick.state.budget.remainingMs)
     }
 
+    /**
+     * An "Open anyway" grant is the one grant that costs nothing it did not already cost at the
+     * moment it was handed out (§A.3).
+     *
+     * It counts down like any grant, but it takes nothing out of the budget, nothing out of free
+     * scroll, no quick minute, and it does not pause the rest that put the wall in front of him: a
+     * moving "Rest ends at" line would be new accounting to protect a few minutes the caps already
+     * bound. The day cap was charged when the grant started and is not charged again here.
+     */
+    @Test
+    fun Accounting_override_drains_nothing_and_rest_keeps_running() {
+        val resting = Fixtures.state(
+            now = now,
+            phase = Phase.GRANTED,
+            foregroundPackage = Fixtures.INSTAGRAM.packageName,
+            foregroundGuarded = true,
+            budget = Fixtures.budget(remainingMs = 3 * MIN, lastGuardedUseElapsed = now.elapsedMs),
+            rest = Fixtures.rest(remainingMs = 20 * MIN, lastAccountedElapsed = now.elapsedMs),
+            economy = Fixtures.economyDay(overridesUsed = 1),
+            grant = Fixtures.grant(
+                kind = GrantKind.OVERRIDE,
+                grantedMs = EngineRules.OVERRIDE_MS,
+                consumedMs = 0L,
+                lastAccountedElapsed = now.elapsedMs,
+            ),
+        )
+        val rig = Rig(initial = resting)
+        rig.tick(TestTime.after(now, 4))
+
+        assertEquals(4 * MIN, rig.state.grant?.consumedMs, "the ten minutes count down like any grant")
+        assertEquals(3 * MIN, rig.state.budget.remainingMs, "the budget is untouched")
+        assertEquals(16 * MIN, rig.state.rest?.remainingMs, "the rest keeps counting down")
+        assertEquals(1, rig.state.economy.overridesUsed, "the cap was charged at the start, once")
+        assertEquals(0L, rig.state.economy.freeUsedMs)
+        assertEquals(0, rig.state.economy.quickNeedsUsed)
+        assertTrue(rig.effects.isEmpty())
+    }
+
     // ── rest ──────────────────────────────────────────────────────────────────────────────────
 
     @Test

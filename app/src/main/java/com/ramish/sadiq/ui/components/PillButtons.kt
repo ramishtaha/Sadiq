@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,8 +29,13 @@ import androidx.compose.ui.unit.dp
 import com.ramish.sadiq.ui.theme.Spacing
 import com.ramish.sadiq.ui.theme.ThemeFlavor
 
-/** Which ink a [TextPillButton] uses. `ACCENT` is the 2 % tertiary accent, reserved for free scroll. */
-enum class TextPillVariant { PRIMARY, ACCENT }
+/**
+ * Which ink a [TextPillButton] uses. `ACCENT` is the 2 % tertiary accent, reserved for free scroll.
+ *
+ * `COST` is the discouraged door: `error` content with no container, the second sanctioned non-error red
+ * after "Delete all history" (§A.5). It is a red line, never a filled red container, and never a red page.
+ */
+enum class TextPillVariant { PRIMARY, ACCENT, COST }
 
 /**
  * The one commit button on a screen: a 56 dp primary pill, full width by default.
@@ -118,7 +124,11 @@ fun TonalPillButton(
 /**
  * A text-only action: 48 dp of touch target with no container, so it can sit inside a row without
  * adding visual weight. [TextPillVariant.ACCENT] uses `tertiary`, which Sadiq spends only on free
- * scroll; everything else is `primary`.
+ * scroll; [TextPillVariant.COST] uses `error` and is the last thing read on a surface — the hollow star
+ * says "this one won't light" in the app's own language rather than with an emoji (§A.5).
+ *
+ * @param leadingIcon an optional 18 dp glyph before the label, the "Open anyway" star.
+ * @param leadingIconContentDescription the glyph's description; null keeps it decorative.
  */
 @Composable
 fun TextPillButton(
@@ -127,12 +137,15 @@ fun TextPillButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     variant: TextPillVariant = TextPillVariant.PRIMARY,
+    leadingIcon: ImageVector? = null,
+    leadingIconContentDescription: String? = null,
     fillWidth: Boolean = false
 ) {
     val scheme = MaterialTheme.colorScheme
     val ink = when (variant) {
         TextPillVariant.PRIMARY -> scheme.primary
         TextPillVariant.ACCENT -> scheme.tertiary
+        TextPillVariant.COST -> scheme.error
     }
     PillSurface(
         onClick = onClick,
@@ -144,6 +157,14 @@ fun TextPillButton(
         contentColor = if (enabled) ink else scheme.onSurface.copy(alpha = 0.38f),
         border = null
     ) {
+        if (leadingIcon != null) {
+            Icon(
+                imageVector = leadingIcon,
+                contentDescription = leadingIconContentDescription,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(Spacing.sm))
+        }
         Text(text = text, style = MaterialTheme.typography.labelLarge)
     }
 }
@@ -257,6 +278,12 @@ private fun TextPillButtonLightPreview() {
     ComponentPreview(ThemeFlavor.LIGHT) {
         TextPillButton(text = "Why?", onClick = {})
         TextPillButton(text = "Use free scroll · 8 min", onClick = {}, variant = TextPillVariant.ACCENT)
+        TextPillButton(
+            text = "Open anyway",
+            onClick = {},
+            variant = TextPillVariant.COST,
+            leadingIcon = Icons.Outlined.StarBorder,
+        )
     }
 }
 
@@ -266,6 +293,12 @@ private fun TextPillButtonDarkPreview() {
     ComponentPreview(ThemeFlavor.DARK) {
         TextPillButton(text = "Why?", onClick = {})
         TextPillButton(text = "Use free scroll · 8 min", onClick = {}, variant = TextPillVariant.ACCENT)
+        TextPillButton(
+            text = "Open anyway",
+            onClick = {},
+            variant = TextPillVariant.COST,
+            leadingIcon = Icons.Outlined.StarBorder,
+        )
     }
 }
 
@@ -275,5 +308,11 @@ private fun TextPillButtonSepiaPreview() {
     ComponentPreview(ThemeFlavor.SEPIA) {
         TextPillButton(text = "Why?", onClick = {})
         TextPillButton(text = "Use free scroll · 8 min", onClick = {}, variant = TextPillVariant.ACCENT)
+        TextPillButton(
+            text = "Open anyway",
+            onClick = {},
+            variant = TextPillVariant.COST,
+            leadingIcon = Icons.Outlined.StarBorder,
+        )
     }
 }

@@ -273,7 +273,13 @@ class GuardEngine(
         if (st.phase == Phase.PROMPTING && ctx.window.kind == WindowKind.PRAYER) {
             val showing = st.prompt
             if (showing != null && showing.kind in HARD_SURFACES) {
-                val upgraded = showing.copy(kind = SurfaceKind.PRAYER, shownWall = now.wallMs)
+                // The arm dies with the surface it belonged to: a confirm view on a prayer surface
+                // would be a hold button with nothing behind it (A.4, T37x).
+                val upgraded = showing.copy(
+                    kind = SurfaceKind.PRAYER,
+                    shownWall = now.wallMs,
+                    overrideArmedElapsed = null,
+                )
                 st = st.copy(prompt = upgraded)
                 effects += Effect.UpdateSurface(ui(st, upgraded, ctx, now, reason = null))
             }
@@ -764,9 +770,8 @@ class GuardEngine(
         is Choice.EndFocus -> endFocusFromPrompt(state, prompt, now, ctx, effects)
         is Choice.Reflect -> reflect(state, prompt, choice.reason, now, ctx, effects)
         is Choice.DoneEarly, is Choice.PauseGrant, is Choice.DiscardPaused -> state
-        // The override contract only (OV-0): arming and opening are T36/T37, which OV-1 builds here.
-        // Until then the two inputs are accepted and change nothing — no arm, no grant, no record.
-        is Choice.ArmOverride, is Choice.Override -> state
+        is Choice.ArmOverride -> armOverride(state, prompt, now, ctx, effects)
+        is Choice.Override -> overrideOpen(state, prompt, choice.reason, now, ctx, effects)
     }
 
     /** T06: Leave, or Back. */
@@ -1020,6 +1025,103 @@ class GuardEngine(
             RecordEvent.Reflected(now.wallMs, ctx.logicalDay, reason, updated.packageName, opens),
         )
         effects += Effect.UpdateSurface(ui(st, updated, ctx, now, reason = reason))
+        return st
+    }
+
+    // ── "Open anyway" (§A.1–A.4) ────────────────────────────────────────────────────────────────
+
+    /**
+     * T36: he tapped "Open anyway" on a surface that offers no yes of its own.
+     *
+     * The surface switches to its confirm view and the wait starts. Nothing else happens: arming is
+     * not opening, so there is no record, no grant and no economy call — the day and the night are
+     * charged only when T37 actually hands out the ten minutes (A.3). The guard is the same
+     * [InterceptUiBuilder.overrideOffer] the button was drawn from, so a door the screen does not
+     * show cannot be armed by a stray input either.
+     */
+    private fun armOverride(
+        state: EngineState,
+        prompt: Prompt,
+        now: TimeSnapshot,
+        ctx: GuardContext,
+        effects: MutableList<Effect>,
+    ): EngineState {
+        if (!InterceptUiBuilder.overrideOffer(state, prompt, ctx, facts(state, ctx, now))) return state
+        val armed = prompt.copy(overrideArmedElapsed = now.elapsedMs)
+        val st = state.copy(prompt = armed)
+        effects += Effect.UpdateSurface(ui(st, armed, ctx, now, reason = null))
+        return st
+    }
+
+    /**
+     * T37: the hold completed, so the door opens for the ten minutes it promises.
+     *
+     * Both guards are re-read here rather than trusted from arming time: the offer may have gone (the
+     * adhan, a focus, a cap) and the wait may not be over. `elapsedRealtime` is the clock, so moving
+     * the wall clock forward cannot shorten the wait (F-05, A.3). The grant is charged where every
+     * grant is charged — [startGrant] — and `dayAfterGrant` books the day cap at the same instant, so
+     * a restart refunds nothing.
+     */
+    private fun overrideOpen(
+        state: EngineState,
+        prompt: Prompt,
+        reason: ReflectionReason,
+        now: TimeSnapshot,
+        ctx: GuardContext,
+        effects: MutableList<Effect>,
+    ): EngineState {
+        val armed = prompt.overrideArmedElapsed ?: return overrideRefused(state, prompt, now, ctx, effects)
+        val facts = facts(state, ctx, now)
+        val waited = now.elapsedMs - armed
+        if (!InterceptUiBuilder.overrideOffer(state, prompt, ctx, facts) ||
+            waited < InterceptUiBuilder.overrideWaitMs(ctx)
+        ) {
+            return overrideRefused(state, prompt, now, ctx, effects)
+        }
+        val st = startGrant(
+            state = state,
+            prompt = prompt,
+            kind = GrantKind.OVERRIDE,
+            grantedMs = EngineRules.OVERRIDE_MS,
+            outcome = OpenOutcome.OVERRIDE,
+            now = now,
+            ctx = ctx,
+            effects = effects,
+        )
+        // The reason is one more answered question: it feeds Week's "What you said" and the one
+        // suggestion rule, exactly as a check-in answer does (A.7).
+        effects += Effect.Record(
+            RecordEvent.Reflected(
+                at = now.wallMs,
+                logicalDay = ctx.logicalDay,
+                reason = reason,
+                packageName = prompt.packageName,
+                opensInWindow = facts.reflectionOpens,
+            ),
+        )
+        return st
+    }
+
+    /**
+     * T37x: the hold arrived, but the door may not open.
+     *
+     * A wait that has not run out changes nothing: the button was disabled, the arm keeps counting,
+     * and a stray tap must not restart the wait. A door that has gone since arming is different — the
+     * confirm view on screen is now offering something the engine will refuse — so the arm is dropped
+     * and the surface is redrawn as it really is.
+     */
+    private fun overrideRefused(
+        state: EngineState,
+        prompt: Prompt,
+        now: TimeSnapshot,
+        ctx: GuardContext,
+        effects: MutableList<Effect>,
+    ): EngineState {
+        if (prompt.overrideArmedElapsed == null) return state
+        if (InterceptUiBuilder.overrideOffer(state, prompt, ctx, facts(state, ctx, now))) return state
+        val cleared = prompt.copy(overrideArmedElapsed = null)
+        val st = state.copy(prompt = cleared)
+        effects += Effect.UpdateSurface(ui(st, cleared, ctx, now, reason = null))
         return st
     }
 
@@ -1278,17 +1380,6 @@ class GuardEngine(
         now: TimeSnapshot,
         reason: ReflectionReason?,
     ): InterceptUi {
-        val facts = UiFacts(
-            freeScrollAvailableMs = economy.freeScrollAvailableMs(state.economy),
-            quickNeedsLeft = economy.quickNeedsLeft(state.economy),
-            reflectionOpens = reflection.opensInWindow(state.recentOpensWall, now.wallMs),
-            leaveEarnsStar = economy.peekLeave(
-                day = state.economy,
-                window = ctx.window.kind,
-                nowWall = now.wallMs,
-                pendingKindles = state.kindles.size,
-            ),
-        )
         val suggestion: Suggestion = suggester.suggest(
             InterceptUiBuilder.suggestionContext(state, ctx, now, reason),
         )
@@ -1297,10 +1388,23 @@ class GuardEngine(
             prompt = prompt,
             ctx = ctx,
             now = now,
-            facts = facts,
+            facts = facts(state, ctx, now),
             suggestion = suggestion,
         )
     }
+
+    /** The economy balances a surface needs, read once so the guard and the build see the same day. */
+    private fun facts(state: EngineState, ctx: GuardContext, now: TimeSnapshot): UiFacts = UiFacts(
+        freeScrollAvailableMs = economy.freeScrollAvailableMs(state.economy),
+        quickNeedsLeft = economy.quickNeedsLeft(state.economy),
+        reflectionOpens = reflection.opensInWindow(state.recentOpensWall, now.wallMs),
+        leaveEarnsStar = economy.peekLeave(
+            day = state.economy,
+            window = ctx.window.kind,
+            nowWall = now.wallMs,
+            pendingKindles = state.kindles.size,
+        ),
+    )
 
     private fun openEvent(
         prompt: Prompt,
@@ -1415,13 +1519,16 @@ class GuardEngine(
             seq = state.seq + 1,
             foregroundGuarded = true,
             foregroundPackage = prompt.packageName,
-            economy = spendOnGrant(state.economy, kind, grantedMs),
+            economy = dayAfterGrant(state.economy, kind, grantedMs),
         )
         st = Accounting.countProtectedUse(
             state = st,
             ctx = ctx,
             grants = if (kind == GrantKind.QUICK) 0 else 1,
             quickNeeds = if (kind == GrantKind.QUICK) 1 else 0,
+            // The night cap is Bedtime's own: a morning grant is recorded as a grant and nothing
+            // more, so the ledger cannot claim the morning spent a cap it does not have (A.4).
+            overrides = if (kind == GrantKind.OVERRIDE && ctx.window.kind == WindowKind.SLEEP_GATE) 1 else 0,
         )
         effects += Effect.DismissSurface
         effects += Effect.ReleaseMedia
@@ -1433,15 +1540,18 @@ class GuardEngine(
     }
 
     /**
+     * What a grant costs at the instant it is handed out.
+     *
      * Free minutes are reserved when the grant is handed out, so leaving early never refunds them and
-     * a quick need is counted the moment he takes it (§3.8 caps).
+     * a quick need is counted the moment he takes it (§3.8 caps). "Open anyway" drains nothing — not
+     * the budget, not free scroll, not the quick minutes — but its day cap is charged here too, which
+     * is what makes a restart mid-grant refund nothing (A.3, A.9).
      */
-    private fun spendOnGrant(day: EconomyDay, kind: GrantKind, grantedMs: Long): EconomyDay = when (kind) {
+    private fun dayAfterGrant(day: EconomyDay, kind: GrantKind, grantedMs: Long): EconomyDay = when (kind) {
         GrantKind.FREE -> day.copy(freeUsedMs = day.freeUsedMs + grantedMs)
         GrantKind.QUICK -> day.copy(quickNeedsUsed = day.quickNeedsUsed + 1)
         GrantKind.STAY, GrantKind.PRAYER_STAY -> day
-        // "Open anyway" drains nothing: not the budget, not free scroll, not the quick minutes (A.9).
-        GrantKind.OVERRIDE -> day
+        GrantKind.OVERRIDE -> day.copy(overridesUsed = day.overridesUsed + 1)
     }
 
     /** T20: the app is no longer guarded, so the surface goes away without a decision or a star. */

@@ -7,6 +7,7 @@ package com.ramish.sadiq.core.insight
 
 import com.ramish.sadiq.core.engine.OpenOutcome
 import com.ramish.sadiq.core.engine.RecordEvent
+import com.ramish.sadiq.core.engine.SurfaceKind
 import com.ramish.sadiq.core.model.Mode
 
 /** §4.3 S4: three bars is what fits beside a headline. */
@@ -27,6 +28,12 @@ private const val PERCENT: Long = 100L
 
 /** §4.3 S4: "up more than 20 %" — 120 % of last week, not 120 % of this one. */
 private const val GROWTH_LIMIT_PERCENT: Long = 120L
+
+/**
+ * §A.7: four trips through the rest wall in one week is a rule he keeps going around, so the wall is the
+ * thing that has to give — not him.
+ */
+private const val REST_OVERRIDES_FOR_LOOSER: Int = 4
 
 /** The open outcomes that mean he left: the prompt's Leave, a gesture away, or the screen going off. */
 private val LEAVE_OUTCOMES: Set<OpenOutcome> = setOf(
@@ -78,7 +85,13 @@ class DefaultWeeklyReviewBuilder(
             quietNights = input.quietNights,
             focusMinutes = input.focusMinutes,
             topReason = topReason(input.reflections.filter { reflection -> reflection.logicalDay in input.days }),
+            // Counted from opens, never from stars: "Open anyway" lights nothing, and the count says so
+            // without a star, a gap in the sky or a word of shame (§A.7).
+            overrides = input.opens.count { open ->
+                open.logicalDay in input.days && open.outcome == OpenOutcome.OVERRIDE
+            },
             suggestion = sleepGateMove(input, peakStartHour)
+                ?: restOverrides(input)
                 ?: modeSwitch(input, totalMs, previousMs, hasPreviousWeek)
                 ?: guardApp(input, perAppMs),
             approximate = input.approximate,
@@ -168,6 +181,26 @@ class DefaultWeeklyReviewBuilder(
             if (floorMod(minute - bandStartMinute, MINUTES_PER_DAY) < bandLengthMin) return true
         }
         return false
+    }
+
+    /**
+     * §A.7's rule, placed after the sleep gate and before the mode rule: in Firm (the code's
+     * [Mode.HARDCORE]), four or more "Open anyway" opens from the rest wall in one week mean the wall is
+     * tighter than the week, so Steady is the honest suggestion.
+     *
+     * Only `COOLDOWN` counts. A night override is answered by the reason line he already gets ("Sleep is
+     * the better scroll"), and suggesting he loosen the whole mode because of 2 AM would be the app giving
+     * up on the one hour it exists for — so night and time's-up overrides never loosen anything here.
+     */
+    private fun restOverrides(input: WeeklyInput): WeeklySuggestion? {
+        if (input.config.mode != Mode.HARDCORE) return null
+        val restOverrides: Int = input.opens.count { open ->
+            open.logicalDay in input.days &&
+                open.outcome == OpenOutcome.OVERRIDE &&
+                open.surface == SurfaceKind.COOLDOWN
+        }
+        if (restOverrides < REST_OVERRIDES_FOR_LOOSER) return null
+        return WeeklySuggestion.SwitchMode(Mode.BALANCED)
     }
 
     /**

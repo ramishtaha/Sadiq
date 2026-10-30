@@ -205,6 +205,27 @@ class WeeklyReviewBuilderTest {
         assertEquals(1, review.leaves)
     }
 
+    // ── open anyway (§A.7) ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun Review_counts_overrides() {
+        val review = builder.build(
+            input(
+                opens = listOf(
+                    open(WEEK_START, OpenOutcome.OVERRIDE, SurfaceKind.COOLDOWN),
+                    open(WEEK_START + 2, OpenOutcome.OVERRIDE, SurfaceKind.SLEEP_GATE),
+                    open(WEEK_END, OpenOutcome.OVERRIDE, SurfaceKind.TIME_UP),
+                    // A leave is not an override, and neither is one outside the week.
+                    open(WEEK_START, OpenOutcome.LEFT),
+                    open(WEEK_START - 1, OpenOutcome.OVERRIDE, SurfaceKind.COOLDOWN),
+                ),
+            ),
+        )
+
+        assertEquals(3, review.overrides, "every OVERRIDE open in the week is counted, on any surface")
+        assertEquals(1, review.leaves, "an override is not a leave")
+    }
+
     @Test
     fun theTopReasonIsTheMostFrequent() {
         val review = builder.build(
@@ -365,6 +386,69 @@ class WeeklyReviewBuilderTest {
         )
 
         assertNull(review.suggestion)
+    }
+
+    @Test
+    fun Review_rest_overrides_in_firm_suggest_steady() {
+        val restOverrides = List(4) { day -> open(WEEK_START + day, OpenOutcome.OVERRIDE, SurfaceKind.COOLDOWN) }
+
+        val review = builder.build(input(opens = restOverrides, config = config(mode = Mode.HARDCORE)))
+
+        assertEquals(4, review.overrides)
+        assertEquals(
+            WeeklySuggestion.SwitchMode(Mode.BALANCED),
+            review.suggestion,
+            "four trips through the rest wall in Firm mean the wall is the thing to loosen",
+        )
+
+        // The gate rule keeps its slot ahead of it: the sleep gate is still the first thing to try.
+        val withPeak = builder.build(
+            input(
+                opens = restOverrides,
+                hourlyMs = profile(22 to 2 * HOUR),
+                config = config(mode = Mode.HARDCORE),
+            ),
+        )
+        assertEquals(WeeklySuggestion.MoveSleepGate(1320), withPeak.suggestion)
+
+        // Steady has nothing to loosen downwards, so the rule stays silent there.
+        val steady = builder.build(input(opens = restOverrides, config = config(mode = Mode.BALANCED)))
+        assertNull(steady.suggestion)
+    }
+
+    @Test
+    fun Review_three_rest_overrides_suggest_nothing() {
+        val review = builder.build(
+            input(
+                opens = List(3) { day -> open(WEEK_START + day, OpenOutcome.OVERRIDE, SurfaceKind.COOLDOWN) },
+                config = config(mode = Mode.HARDCORE),
+            ),
+        )
+
+        assertEquals(3, review.overrides, "three still show in the count")
+        assertNull(review.suggestion, "three is a week, not a rule he keeps going around")
+    }
+
+    @Test
+    fun Review_night_overrides_never_suggest_looser_mode() {
+        // The 2 AM door and a Time's-up door are not the rest wall: he already gets "Sleep is the better
+        // scroll" for the first, and loosening Firm because of either would give up the hour it exists for.
+        val night = builder.build(
+            input(
+                opens = List(5) { day -> open(WEEK_START + day, OpenOutcome.OVERRIDE, SurfaceKind.SLEEP_GATE) },
+                config = config(mode = Mode.HARDCORE),
+            ),
+        )
+        val timeUp = builder.build(
+            input(
+                opens = List(5) { day -> open(WEEK_START + day, OpenOutcome.OVERRIDE, SurfaceKind.TIME_UP) },
+                config = config(mode = Mode.HARDCORE),
+            ),
+        )
+
+        assertEquals(5, night.overrides, "the night door is still counted")
+        assertNull(night.suggestion, "a night override never loosens the mode")
+        assertNull(timeUp.suggestion, "only COOLDOWN overrides count toward the rest rule")
     }
 
     @Test
@@ -559,12 +643,16 @@ class WeeklyReviewBuilderTest {
     private fun row(logicalDay: Int, packageName: String, foregroundMs: Long): UsageDayRow =
         UsageDayRow(logicalDay = logicalDay, packageName = packageName, foregroundMs = foregroundMs, opens = 1, nightMs = 0L)
 
-    private fun open(logicalDay: Int, outcome: OpenOutcome): RecordEvent.Open = RecordEvent.Open(
+    private fun open(
+        logicalDay: Int,
+        outcome: OpenOutcome,
+        surface: SurfaceKind = SurfaceKind.PAUSE,
+    ): RecordEvent.Open = RecordEvent.Open(
         at = NOW,
         logicalDay = logicalDay,
         packageName = INSTAGRAM,
         domain = null,
-        surface = SurfaceKind.PAUSE,
+        surface = surface,
         outcome = outcome,
         decisionMs = null,
         grantId = null,
