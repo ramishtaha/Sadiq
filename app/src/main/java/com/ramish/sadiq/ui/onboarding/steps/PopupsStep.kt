@@ -3,15 +3,21 @@ package com.ramish.sadiq.ui.onboarding.steps
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ramish.sadiq.R
 import com.ramish.sadiq.contract.SettingsTarget
-import com.ramish.sadiq.ui.onboarding.OnboardingViewModel
+import com.ramish.sadiq.ui.onboarding.OemPathNote
 import com.ramish.sadiq.ui.onboarding.OemStepScaffold
+import com.ramish.sadiq.ui.onboarding.OnboardingPlan
+import com.ramish.sadiq.ui.onboarding.OnboardingViewModel
 
 /** O7: HyperOS pop-up permission. */
 @Composable
 fun PopupsStep(vm: OnboardingViewModel) {
+    val state by vm.uiState.collectAsStateWithLifecycle()
+
     OemStepScaffold(
         icon = Icons.Filled.PictureInPictureAlt,
         headline = stringResource(R.string.onboarding_popups_headline),
@@ -21,6 +27,14 @@ fun PopupsStep(vm: OnboardingViewModel) {
         // On a HyperOS build this op can read UNKNOWN forever. The step explains the fallback; it
         // must not become the place a user is stuck.
         secondaryLabel = stringResource(R.string.onboarding_skip_action),
-        onSecondary = { vm.skipCurrent() }
+        onSecondary = { vm.skipCurrent() },
+        // The permission's name changed between HyperOS 2 and 3; the resolver picks the one this
+        // build shows, and draws nothing when the build is not HyperOS at all.
+        content = {
+            OemPathNote(
+                step = OnboardingPlan.StepId.POPUPS,
+                hyperOsMajor = state.perms.hyperOsMajor,
+            )
+        }
     )
 }

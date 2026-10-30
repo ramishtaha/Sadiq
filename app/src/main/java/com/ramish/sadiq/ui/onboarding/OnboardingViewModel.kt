@@ -35,6 +35,7 @@ import com.ramish.sadiq.ui.onboarding.OnboardingPlan.StepId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -124,11 +125,10 @@ class OnboardingViewModel @Inject constructor(
     /** Steps the user chose to skip for this run of the wizard. Never persisted, never a claim. */
     private val skipped: MutableSet<StepId> = mutableSetOf()
 
-    /** Whether the user has already been sent to the accessibility page once (enables O5b). */
-    private var accessibilityTried: Boolean = false
-
-    /** Whether the user has already dismissed the restricted-setting fix, so it stops being offered. */
-    private var restrictedDismissed: Boolean = false
+    // The two O5b flags are not fields. They live in [UiPrefs] (`accessibilityTried`,
+    // `restrictedDismissed`) because HyperOS routinely kills this process while the user is on the
+    // accessibility page: an in-memory flag vanished exactly when O5b was the step they needed, and
+    // O5 has no Skip.
 
     /** The last preferences read, so a Back tap can skip over a step it would immediately skip. */
     private var lastPrefs: UiPrefs? = null
@@ -232,7 +232,7 @@ class OnboardingViewModel @Inject constructor(
 
         val state = mutableState.value
         var index = reconcileIndex(state, steps, snapshot, preferences)
-        if (advanceFromAccessibility && !restrictedDismissed && state.currentStep == StepId.ACCESSIBILITY) {
+        if (advanceFromAccessibility && !preferences.restrictedDismissed && state.currentStep == StepId.ACCESSIBILITY) {
             val restricted = steps.indexOf(StepId.RESTRICTED_SETTING)
             if (restricted >= 0 && !accessibilitySatisfied(snapshot)) index = restricted
         }
@@ -249,7 +249,7 @@ class OnboardingViewModel @Inject constructor(
 
     /** The plan for one reading and one set of preferences, minus the steps the user skipped. */
     private fun buildSteps(perms: PermissionSnapshot, prefs: UiPrefs): List<StepId> =
-        OnboardingPlan.steps(perms, perms.isXiaomiFamily, accessibilityTried)
+        OnboardingPlan.steps(perms, perms.isXiaomiFamily, prefs.accessibilityTried)
             .filterNot { it in skipped }
 
     /**
@@ -369,7 +369,11 @@ class OnboardingViewModel @Inject constructor(
         var index = state.index - 1
         while (index > 0 && prefs != null && isSatisfied(state.steps[index], perms, prefs)) index--
         if (index >= 0 && index < state.steps.size) {
-            if (state.currentStep == StepId.RESTRICTED_SETTING) restrictedDismissed = true
+            // Back out of O5b is an answer: stop offering the restricted-setting fix automatically.
+            // It is written down for the same reason the flag that produced the step is.
+            if (state.currentStep == StepId.RESTRICTED_SETTING) {
+                viewModelScope.launch { dismissRestrictedFix() }
+            }
             mutableState.update { it.copy(index = index) }
             viewModelScope.launch { saveProgress(index) }
         }
@@ -379,8 +383,11 @@ class OnboardingViewModel @Inject constructor(
     fun skipCurrent() {
         val step = mutableState.value.currentStep ?: return
         skipped += step
-        if (step == StepId.RESTRICTED_SETTING) restrictedDismissed = true
-        viewModelScope.launch { reconcilePlan(advanceFromAccessibility = false) }
+        viewModelScope.launch {
+            // O5b's Skip and its Back are the same answer, and it has to outlive the process too.
+            if (step == StepId.RESTRICTED_SETTING) dismissRestrictedFix()
+            reconcilePlan(advanceFromAccessibility = false)
+        }
     }
 
     /** Confirms a self-reported OEM step and moves on: the two always happen together. */
@@ -455,10 +462,59 @@ class OnboardingViewModel @Inject constructor(
         mutableState.update { it.copy(morningEndMin = minuteOfDay) }
     }
 
-    /** Opens the settings target, remembering that accessibility has been attempted. */
+    /**
+     * Opens the settings target.
+     *
+     * Opening the accessibility page is what makes O5b possible, so the fact that the user has been
+     * there is written down *before* Sadiq leaves the foreground. HyperOS kills this process while
+     * the user reads that page; a flag written after the return would be lost in exactly the case
+     * O5b exists for.
+     */
     fun openFix(target: SettingsTarget) {
-        if (target == SettingsTarget.ACCESSIBILITY) accessibilityTried = true
-        oemSettingsLauncher.open(target)
+        if (target != SettingsTarget.ACCESSIBILITY) {
+            oemSettingsLauncher.open(target)
+            return
+        }
+        viewModelScope.launch {
+            try {
+                settings.updatePrefs { it.copy(accessibilityTried = true) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // The switch is the point of the tap; a failed bookkeeping write must not block it.
+            }
+            oemSettingsLauncher.open(target)
+        }
+    }
+
+    /**
+     * O5's own way into O5b: "Still not on?".
+     *
+     * O5 has no Skip. Before this, O5b was reachable only through a failed grant after the user had
+     * been to the page, so a greyed-out switch left setup with no forward answer but the tab bar.
+     * The tap clears the dismissal as well, so the link still works after the user has backed out of
+     * O5b once.
+     */
+    fun showRestrictedFix() {
+        viewModelScope.launch {
+            // The link is the user asking for the step, so it outranks an earlier Skip in this run.
+            skipped -= StepId.RESTRICTED_SETTING
+            settings.updatePrefs { it.copy(accessibilityTried = true, restrictedDismissed = false) }
+            val prefs = settings.prefs.first()
+            val perms = permsProvider.snapshot()
+            val steps = buildSteps(perms, prefs)
+            val index = steps.indexOf(StepId.RESTRICTED_SETTING)
+            // No O5b in the plan means accessibility has just been granted: the plan's own reconcile
+            // is already moving the wizard forward, and there is nothing to fix.
+            if (index < 0) return@launch
+            mutableState.update { it.copy(steps = steps, index = index, perms = perms) }
+            saveProgress(index)
+        }
+    }
+
+    /** Records that the user answered O5b, so it stops being offered on the next return. */
+    private suspend fun dismissRestrictedFix() {
+        settings.updatePrefs { it.copy(restrictedDismissed = true) }
     }
 
     /**

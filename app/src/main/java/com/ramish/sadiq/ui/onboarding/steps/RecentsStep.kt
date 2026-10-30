@@ -3,15 +3,20 @@ package com.ramish.sadiq.ui.onboarding.steps
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ramish.sadiq.R
-import com.ramish.sadiq.ui.onboarding.OnboardingViewModel
+import com.ramish.sadiq.ui.onboarding.OemPathNote
 import com.ramish.sadiq.ui.onboarding.OemStepScaffold
 import com.ramish.sadiq.ui.onboarding.OnboardingPlan
+import com.ramish.sadiq.ui.onboarding.OnboardingViewModel
 
 /** O11: HyperOS lock in Recents. */
 @Composable
 fun RecentsStep(vm: OnboardingViewModel) {
+    val state by vm.uiState.collectAsStateWithLifecycle()
+
     OemStepScaffold(
         icon = Icons.Filled.Lock,
         headline = stringResource(R.string.onboarding_recents_headline),
@@ -19,6 +24,12 @@ fun RecentsStep(vm: OnboardingViewModel) {
         actionLabel = stringResource(R.string.onboarding_recents_action),
         // There is no settings page for the Recents gesture, so the button is the whole answer:
         // the user confirms it and the wizard moves on.
-        onAction = { vm.confirmStep(OnboardingPlan.StepId.RECENTS) }
+        onAction = { vm.confirmStep(OnboardingPlan.StepId.RECENTS) },
+        content = {
+            OemPathNote(
+                step = OnboardingPlan.StepId.RECENTS,
+                hyperOsMajor = state.perms.hyperOsMajor,
+            )
+        }
     )
 }

@@ -30,6 +30,7 @@ import com.ramish.sadiq.core.time.TimeSnapshot
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -210,6 +211,38 @@ class ContractSerializationTest {
                 "a pending change written by an older build must still decode: $text"
             )
         }
+    }
+
+    /**
+     * A4-12's storage half: the removal record lives in the same JSON column as the change itself,
+     * so no schema change and no migration are involved. A row written before the field existed
+     * still decodes — with no record, which is the honest reading of it.
+     */
+    @Test
+    fun setApps_decodesARowWrittenBeforeTheRemovalRecordExisted() {
+        val olderBuild =
+            """{"type":"set_apps","apps":[{"packageName":"com.instagram.android","label":"Instagram"}]}"""
+
+        val decoded = json.decodeFromString(SettingsChange.serializer(), olderBuild)
+
+        assertEquals(
+            SettingsChange.SetApps(listOf(GuardedApp("com.instagram.android", "Instagram"))),
+            decoded,
+        )
+        assertNull((decoded as SettingsChange.SetApps).removed, "an older row records no removals")
+    }
+
+    @Test
+    fun setApps_roundTripsTheRecordedRemovals() {
+        val change = SettingsChange.SetApps(
+            apps = listOf(GuardedApp("com.google.android.youtube", "YouTube")),
+            removed = setOf("com.instagram.android"),
+        )
+
+        val text = json.encodeToString(SettingsChange.serializer(), change)
+
+        assertTrue(text.contains("\"removed\":[\"com.instagram.android\"]"), text)
+        assertEquals(change, json.decodeFromString(SettingsChange.serializer(), text))
     }
 
     @Test

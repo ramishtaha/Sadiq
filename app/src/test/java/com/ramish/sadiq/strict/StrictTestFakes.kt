@@ -8,7 +8,11 @@ import com.ramish.sadiq.contract.PendingChangesRepository
 import com.ramish.sadiq.contract.SettingsRepository
 import com.ramish.sadiq.contract.UiPrefs
 import com.ramish.sadiq.core.model.GuardConfig
+import com.ramish.sadiq.core.model.GuardedApp
 import com.ramish.sadiq.core.strict.SettingsChange
+import com.ramish.sadiq.core.strict.isSupersededBy
+import com.ramish.sadiq.core.strict.rebasedOnto
+import com.ramish.sadiq.core.strict.withRemovalsRecorded
 import com.ramish.sadiq.core.time.Clock
 import com.ramish.sadiq.testing.DefaultTestPrefs
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +27,12 @@ import kotlinx.coroutines.flow.asStateFlow
  * That is the whole of `SettingsRepositoryImpl.apply` in nine lines, which is what makes these tests
  * meaningful — the applier is exercised against a repository that really does re-ask the gate, so a
  * missing bypass would show up as a change that never lands rather than as a green test.
+ *
+ * The three A4-12 pieces are mirrored too, because they are the behaviour under test: a deferred
+ * `SetApps` records what it removes ([withRemovalsRecorded]), a queued snapshot is rebased onto the
+ * list in force ([rebasedOnto]) instead of replacing it, and a queued row of the same kind is
+ * dropped when a newer edit of that kind lands. Without them the fake would reproduce the bug the
+ * real repository no longer has.
  *
  * The in-memory write handles every [SettingsChange] subtype, because the repository is also the
  * fixture for the classification tests.
@@ -58,12 +68,39 @@ class GatedSettingsRepository(
             GateDecision.ApplyNow -> {
                 applied += change
                 mutableConfig.value = applyNow(mutableConfig.value, change)
+                dropSuperseded(change, nowWall)
                 ApplyResult.Applied
             }
 
             is GateDecision.Defer -> {
-                pendingChanges.add(change, decision.applyAtWall)
+                pendingChanges.add(
+                    queuedRowFor(change, mutableConfig.value.apps),
+                    decision.applyAtWall
+                )
                 ApplyResult.Scheduled(decision.applyAtWall)
+            }
+        }
+    }
+
+    /**
+     * The row to queue for a deferred edit: a `SetApps` snapshot keeps its list and gains the
+     * packages it drops, as `SettingsRepositoryImpl.queuedRowFor` does.
+     */
+    private fun queuedRowFor(change: SettingsChange, guardedNow: List<GuardedApp>): SettingsChange =
+        when (change) {
+            is SettingsChange.SetApps -> change.withRemovalsRecorded(guardedNow)
+            else -> change
+        }
+
+    /**
+     * Mirror of `SettingsRepositoryImpl.dropSuperseded`: a row still waiting behind an edit of the
+     * same kind that has just landed is dead weight, and would otherwise undo that edit when its own
+     * moment came.
+     */
+    private suspend fun dropSuperseded(applied: SettingsChange, nowWall: Long) {
+        for (row in pendingChanges.due(Long.MAX_VALUE)) {
+            if (row.applyAt > nowWall && row.change.isSupersededBy(applied)) {
+                pendingChanges.remove(row.id)
             }
         }
     }
@@ -75,7 +112,11 @@ class GatedSettingsRepository(
     /** One change against one config, with no gate and no persistence. */
     private fun applyNow(config: GuardConfig, change: SettingsChange): GuardConfig = when (change) {
         is SettingsChange.SetMode -> config.copy(mode = change.mode)
-        is SettingsChange.SetApps -> config.copy(apps = change.apps)
+        // A live edit replaces the list; a queued snapshot is rebased onto the list in force, exactly
+        // as `SettingsRepositoryImpl.replaceApps` does (AUDIT-4 A4-12).
+        is SettingsChange.SetApps -> config.copy(
+            apps = if (change.removed == null) change.apps else change.rebasedOnto(config.apps)
+        )
         is SettingsChange.SetSurfaceMode -> config.copy(
             apps = config.apps.map { app ->
                 if (app.packageName == change.packageName) app.copy(surfaceMode = change.mode) else app

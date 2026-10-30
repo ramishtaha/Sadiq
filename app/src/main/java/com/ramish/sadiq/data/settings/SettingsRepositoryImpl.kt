@@ -1,5 +1,6 @@
 package com.ramish.sadiq.data.settings
 
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -12,8 +13,10 @@ import com.ramish.sadiq.contract.PendingChangesRepository
 import com.ramish.sadiq.contract.SettingsRepository
 import com.ramish.sadiq.contract.UiPrefs
 import com.ramish.sadiq.core.model.GuardConfig
-import com.ramish.sadiq.core.model.GuardedApp
 import com.ramish.sadiq.core.strict.SettingsChange
+import com.ramish.sadiq.core.strict.isSupersededBy
+import com.ramish.sadiq.core.strict.rebasedOnto
+import com.ramish.sadiq.core.strict.withRemovalsRecorded
 import com.ramish.sadiq.data.db.ConfigDao
 import com.ramish.sadiq.data.db.GuardedDomainEntity
 import com.ramish.sadiq.data.db.SadiqDatabase
@@ -24,6 +27,7 @@ import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -45,6 +49,11 @@ import kotlinx.coroutines.sync.withLock
  *
  * [apply] is the only write path for guard config: it asks the optional [ChangeGate] first (strict
  * mode, M2). Without a gate — which is every M1 build — the change lands immediately.
+ *
+ * A deferred edit is not stored as it arrived. A `SetApps` snapshot gains the packages it drops
+ * ([queuedRowFor]), so the applier can rebase it onto the list in force instead of replacing it
+ * (AUDIT-4 A4-12), and an edit of the same kind that a newer one has replaced is dropped
+ * ([dropSuperseded]).
  *
  * CONTRACT-GAP: the contract has no application-scope CoroutineScope binding, so this singleton owns
  * a supervisor scope for its own lifetime and starts the config flow in it eagerly, as WP-09 asks.
@@ -100,7 +109,7 @@ class SettingsRepositoryImpl @Inject constructor(
             }
 
             is GateDecision.Defer -> {
-                pendingChanges.add(change, decision.applyAtWall)
+                pendingChanges.add(queuedRowFor(change), decision.applyAtWall)
                 ApplyResult.Scheduled(decision.applyAtWall)
             }
         }
@@ -138,7 +147,7 @@ class SettingsRepositoryImpl @Inject constructor(
                 PrefsMapping.writeMode(mutable, change.mode)
             }
 
-            is SettingsChange.SetApps -> replaceApps(change.apps, nowWall)
+            is SettingsChange.SetApps -> replaceApps(change, nowWall)
 
             is SettingsChange.SetSurfaceMode -> configDao.setSurfaceMode(change.packageName, change.mode)
 
@@ -168,15 +177,79 @@ class SettingsRepositoryImpl @Inject constructor(
                 PrefsMapping.writeFlags(mutable, change.reflection, change.gymHint, change.webGuard)
             }
         }
+        dropSuperseded(change, nowWall)
     }
 
-    /** Replaces the guard list atomically and keeps the original `added_at` for apps that stay. */
-    private suspend fun replaceApps(apps: List<GuardedApp>, nowWall: Long) {
+    /**
+     * The row to store for a deferred edit.
+     *
+     * A `SetApps` snapshot is taken apart on the way **into** the queue: the packages it drops are
+     * recorded on it, because the list it will be compared against is not the list it was built from
+     * (AUDIT-4 A4-12). Recording it here is the only moment the user's own list is still in hand —
+     * ten minutes later, the apps guarded then look exactly like apps added since.
+     *
+     * Every other change type is a single value and is stored as it stands.
+     */
+    private fun queuedRowFor(change: SettingsChange): SettingsChange = when (change) {
+        is SettingsChange.SetApps -> change.withRemovalsRecorded(config.value.apps)
+        else -> change
+    }
+
+    /**
+     * Drop a queued row that a newer edit of the same kind has made pointless.
+     *
+     * Second half of A4-12. A queued `SetMode(GENTLE)` otherwise undoes, ten minutes later, the Firm
+     * the user chose while it waited — the same staleness one type over. A `SetApps` row is only
+     * dropped when the list just written already drops everything it meant to remove; if the new
+     * list still guards one of those packages, the row keeps its own moment and is rebased onto that
+     * list by [replaceApps].
+     *
+     * Two guards keep this from eating a row it should not:
+     * - only rows **still waiting** are dropped (`applyAt` after [nowWall]); a row due in the same
+     *   pass has already outlived the edit and lands in its own order;
+     * - `due(Long.MAX_VALUE)` is the contract's only synchronous read of the queue, so it is the one
+     *   used here rather than adding a second query to the interface.
+     */
+    private suspend fun dropSuperseded(applied: SettingsChange, nowWall: Long) {
+        try {
+            for (row in pendingChanges.due(Long.MAX_VALUE)) {
+                if (row.applyAt > nowWall && row.change.isSupersededBy(applied)) {
+                    pendingChanges.remove(row.id)
+                }
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Throwable) {
+            // The edit itself has already landed, so this must not fail the write the user is
+            // waiting on. A row that survives is only stale: it is rebased when its own moment
+            // comes, which cannot un-guard anything.
+            Log.w(TAG, "queued rows not superseded: ${failure.message}", failure)
+        }
+    }
+
+    /**
+     * Writes the guard list, atomically, and keeps the original `added_at` for apps that stay.
+     *
+     * A live edit replaces the table with [SettingsChange.SetApps.apps]. A **queued** snapshot
+     * (`removed != null`) is rebased instead: `(current ∪ snapshot) − removed`, computed from the
+     * rows inside this transaction so the subtraction is against the table that is really there, not
+     * against a cached config that a write may already have overtaken (AUDIT-4 A4-12).
+     *
+     * The live row wins for any package in both lists: that keeps its surface mode, so a snapshot
+     * that waited cannot revert a `SetSurfaceMode` the user made in the meantime.
+     */
+    private suspend fun replaceApps(change: SettingsChange.SetApps, nowWall: Long) {
         database.withTransaction {
-            val existing = configDao.appsOnce().associate { row -> row.packageName to row.addedAt }
+            val existing = configDao.appsOnce()
+            val addedAt = existing.associate { row -> row.packageName to row.addedAt }
+            val apps = if (change.removed == null) {
+                change.apps
+            } else {
+                change.rebasedOnto(existing.map { row -> row.toGuardedApp() })
+            }
             configDao.clearApps()
             configDao.insertApps(
-                apps.map { app -> app.toEntity(addedAt = existing[app.packageName] ?: nowWall) },
+                apps.map { app -> app.toEntity(addedAt = addedAt[app.packageName] ?: nowWall) },
             )
         }
     }
@@ -210,5 +283,9 @@ class SettingsRepositoryImpl @Inject constructor(
                 }
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "SP/Settings"
     }
 }

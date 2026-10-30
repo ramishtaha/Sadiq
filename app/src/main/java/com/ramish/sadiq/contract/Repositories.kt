@@ -39,6 +39,12 @@ enum class ThemeMode {
  * @property batterySaverConfirmed self-reported "No restrictions" step.
  * @property skySeed the install's star-layout seed, written once on first launch.
  * @property welcomeStarGiven whether the onboarding self-test star has been awarded.
+ * @property accessibilityTried whether the user has been sent to the accessibility page once. O5b
+ *   exists only after that page has been seen. It is a preference and not a wizard field because
+ *   HyperOS kills the process while the user is in Settings: an in-memory flag would vanish exactly
+ *   when O5b is the step they need.
+ * @property restrictedDismissed whether the user has answered O5b, so it stops being offered
+ *   automatically. Kept beside the flag above for the same reason.
  */
 data class UiPrefs(
     val themeMode: ThemeMode,
@@ -53,7 +59,9 @@ data class UiPrefs(
     val autostartConfirmed: Boolean,
     val batterySaverConfirmed: Boolean,
     val skySeed: Long,
-    val welcomeStarGiven: Boolean
+    val welcomeStarGiven: Boolean,
+    val accessibilityTried: Boolean = false,
+    val restrictedDismissed: Boolean = false
 )
 
 /**

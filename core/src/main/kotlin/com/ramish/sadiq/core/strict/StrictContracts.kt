@@ -26,10 +26,25 @@ sealed interface SettingsChange {
     @SerialName("set_mode")
     data class SetMode(val mode: Mode) : SettingsChange
 
-    /** Replace the guarded app list. @property apps the complete new list. */
+    /**
+     * The guarded app list.
+     *
+     * @property apps the complete selection, as the screen that made it built it.
+     * @property removed the packages this edit drops, recorded by the data layer only when the edit
+     *   is **queued** for "Think it over". `null` — the default, and every live edit — means "write
+     *   [apps] as it stands". A queued row is rebased onto the list in force when it lands, so a
+     *   snapshot that waited can never un-guard an app added while it waited (AUDIT-4 A4-12).
+     *
+     *   Nullable rather than defaulting to an empty set, because an empty set is a claim — "this
+     *   edit removes nothing" — and a row written by a build that did not record removals cannot
+     *   make that claim. See `rebasedOnto` in `PendingChangeRebase.kt`.
+     */
     @Serializable
     @SerialName("set_apps")
-    data class SetApps(val apps: List<GuardedApp>) : SettingsChange
+    data class SetApps(
+        val apps: List<GuardedApp>,
+        val removed: Set<String>? = null
+    ) : SettingsChange
 
     /**
      * Change one app's surface mode.

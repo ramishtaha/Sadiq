@@ -25,6 +25,12 @@ object SettingsKeys {
     val ONBOARDING_DONE: Preferences.Key<Boolean> = booleanPreferencesKey("onboarding_done")
     val ONBOARDING_STEP: Preferences.Key<Int> = intPreferencesKey("onboarding_step")
 
+    // ── Onboarding progress that must outlive the process ────────────────────────────────────────
+    // HyperOS kills Sadiq while the user is on the accessibility page. These two decide whether O5b
+    // is in the plan and whether it is offered automatically, so they cannot live in the ViewModel.
+    val ACCESSIBILITY_TRIED: Preferences.Key<Boolean> = booleanPreferencesKey("accessibility_tried")
+    val RESTRICTED_DISMISSED: Preferences.Key<Boolean> = booleanPreferencesKey("restricted_dismissed")
+
     // ── Guard ────────────────────────────────────────────────────────────────────────────────────
     val MODE: Preferences.Key<String> = stringPreferencesKey("mode")
     val REFLECTION_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("reflection_enabled")

@@ -48,6 +48,10 @@ object PrefsMapping {
         batterySaverConfirmed = prefs[SettingsKeys.BATTERY_SAVER_CONFIRMED] ?: false,
         skySeed = prefs[SettingsKeys.SKY_SEED] ?: SettingsKeys.NO_SKY_SEED,
         welcomeStarGiven = prefs[SettingsKeys.WELCOME_STAR_GIVEN] ?: false,
+        // No codec and no migration: an install that predates these keys simply has no row, and the
+        // missing-key default is the same value a fresh install starts with.
+        accessibilityTried = prefs[SettingsKeys.ACCESSIBILITY_TRIED] ?: false,
+        restrictedDismissed = prefs[SettingsKeys.RESTRICTED_DISMISSED] ?: false,
     )
 
     fun writeUiPrefs(target: MutablePreferences, prefs: UiPrefs) {
@@ -63,6 +67,8 @@ object PrefsMapping {
         target[SettingsKeys.AUTOSTART_CONFIRMED] = prefs.autostartConfirmed
         target[SettingsKeys.BATTERY_SAVER_CONFIRMED] = prefs.batterySaverConfirmed
         target[SettingsKeys.WELCOME_STAR_GIVEN] = prefs.welcomeStarGiven
+        target[SettingsKeys.ACCESSIBILITY_TRIED] = prefs.accessibilityTried
+        target[SettingsKeys.RESTRICTED_DISMISSED] = prefs.restrictedDismissed
         // Zero means "not assigned yet"; writing it would stop the seed from ever being created.
         if (prefs.skySeed != SettingsKeys.NO_SKY_SEED) {
             target[SettingsKeys.SKY_SEED] = prefs.skySeed

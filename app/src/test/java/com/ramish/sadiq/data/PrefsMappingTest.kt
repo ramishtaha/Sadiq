@@ -47,6 +47,8 @@ class PrefsMappingTest {
         assertFalse(prefs.batterySaverConfirmed)
         assertEquals(0L, prefs.skySeed)
         assertFalse(prefs.welcomeStarGiven)
+        assertFalse(prefs.accessibilityTried)
+        assertFalse(prefs.restrictedDismissed)
     }
 
     @Test
@@ -65,6 +67,8 @@ class PrefsMappingTest {
             batterySaverConfirmed = true,
             skySeed = 8_675_309L,
             welcomeStarGiven = true,
+            accessibilityTried = true,
+            restrictedDismissed = true,
         )
         val target = mutablePreferencesOf()
 

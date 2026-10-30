@@ -3,8 +3,10 @@ package com.ramish.sadiq.strict
 import android.util.Log
 import com.ramish.sadiq.AppInitializer
 import com.ramish.sadiq.contract.GuardController
+import com.ramish.sadiq.contract.PendingChange
 import com.ramish.sadiq.contract.PendingChangesRepository
 import com.ramish.sadiq.contract.SettingsRepository
+import com.ramish.sadiq.core.strict.SettingsChange
 import com.ramish.sadiq.core.time.Clock
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
@@ -40,6 +42,20 @@ import kotlinx.coroutines.sync.withLock
  *
  * Each row is removed **after** its change was written. A write that fails leaves the row queued for
  * the next pass rather than dropping a change the user asked for.
+ *
+ * **A queued `SetApps` is never written back verbatim** (AUDIT-4 A4-12). It is a full list, so
+ * applying it as it stands replaces whatever is guarded at that moment — including an app the user
+ * added *after* queueing it, which is a tightening edit and had already landed. The repository
+ * rebases it instead: the list written is `(current ∪ snapshot) − removed`, where `removed` is the
+ * set of packages the snapshot was queued to remove, recorded by `SettingsRepositoryImpl` at the
+ * moment it was queued. An app added while the row waited is in `current` and not in `removed`, so
+ * it stays guarded; an app the snapshot meant to add is added; only the removal the user asked for
+ * happens. See `rebasedOnto` in the core `PendingChangeRebase.kt` for the full statement.
+ *
+ * A row that carries no removal record at all was written by a build before that record existed. It
+ * cannot say what it meant to remove, so [forQueuedApply] tells the repository to merge it rather
+ * than replace: it can re-add an app the user dropped, which he can see and undo, but it can never
+ * un-guard one behind his back.
  */
 @Singleton
 class PendingChangeApplier @Inject constructor(
@@ -88,7 +104,7 @@ class PendingChangeApplier @Inject constructor(
             try {
                 // The bypass is what stops the gate from deferring the edit a second time: this row
                 // has already waited, and re-judging it would restart its clock forever.
-                changeGate.applyingDueChange { settingsRepository.apply(pending.change) }
+                changeGate.applyingDueChange { settingsRepository.apply(forQueuedApply(pending)) }
                 pendingChanges.remove(pending.id)
                 applied++
             } catch (cancellation: CancellationException) {
@@ -100,6 +116,23 @@ class PendingChangeApplier @Inject constructor(
             }
         }
         applied
+    }
+
+    /**
+     * The change to hand the repository for one queued row.
+     *
+     * A `SetApps` row queued by this build carries its removal record (`removed != null`) and the
+     * repository rebases it. One written by an earlier build carries none: replaying it verbatim is
+     * the A4-12 bug with nothing recorded to correct it, so it is promoted to "removes nothing" and
+     * merged into the list in force instead. That direction is chosen on purpose — it can leave an
+     * app guarded that the user asked to drop, which he can see, but it can never drop one he did
+     * not.
+     */
+    private fun forQueuedApply(pending: PendingChange): SettingsChange {
+        val change = pending.change
+        if (change !is SettingsChange.SetApps || change.removed != null) return change
+        Log.w(TAG, "pending change ${pending.id} carries no removal record; merging its app list")
+        return change.copy(removed = emptySet())
     }
 
     /** One poll iteration, isolated so a database failure cannot kill the loop. */
